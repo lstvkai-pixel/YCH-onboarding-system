@@ -12,7 +12,7 @@ def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. New Hires Table
+    # 1. New Hires Table (With Status column added for archiving)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS new_hires (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,10 +22,17 @@ def init_database():
             department TEXT NOT NULL DEFAULT 'HR Team',
             manager TEXT NOT NULL,
             start_date TEXT NOT NULL,
-            gender TEXT NOT NULL DEFAULT 'Male'
+            gender TEXT NOT NULL DEFAULT 'Male',
+            status TEXT NOT NULL DEFAULT 'Active'
         )
     ''')
     
+    # Migration safety net: Adds 'status' column dynamically if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE new_hires ADD COLUMN status TEXT NOT NULL DEFAULT 'Active'")
+    except sqlite3.OperationalError:
+        pass
+        
     try:
         cursor.execute("ALTER TABLE new_hires ADD COLUMN gender TEXT NOT NULL DEFAULT 'Male'")
     except sqlite3.OperationalError:
@@ -53,14 +60,11 @@ def init_database():
         )
     ''')
     
-    # 🧼 REMOVED THE HARDCODED DEFAULT LOADERS TO KEEP THE DROPDOWN BLANK
-        
     conn.commit()
     conn.close()
 
 init_database()
 
-# Helper function to generate uniform WhatsApp message layouts across the system
 def generate_whatsapp_message(emp_id, name, gender, dept, role, manager, start_date):
     return (
         f"🚨 *[YCH_HR Alert] New Onboarding Training Scheduled*\n\n"
@@ -88,7 +92,7 @@ st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
     "WORKSPACE MENU", 
-    ["📊 New Hires Dashboard", "📋 Task Checklist View", "➕ Add New Employee", "🚨 System Administration"]
+    ["📊 New Hires Dashboard", "🗃️ Archived Roster", "📋 Task Checklist View", "➕ Add New Employee", "🚨 System Administration"]
 )
 
 YCH_DEPARTMENTS = [
@@ -105,19 +109,20 @@ PHASE_GROUPS = [
     "Group 3: Monthly Engagement Checklist"
 ]
 
-# --- VIEW 1: HIGH LEVEL DASHBOARD ---
+# --- VIEW 1: ACTIVE DASHBOARD ---
 if menu == "📊 New Hires Dashboard":
-    st.title("New Hires Dashboard")
-    st.caption("A high-level command center for HR to monitor active onboarding cases split by phase groups.")
+    st.title("Active New Hires Dashboard")
+    st.caption("Monitor active onboarding cases split by phase groups.")
     st.markdown("---")
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, gender FROM new_hires")
+    # Only pull Active profiles
+    cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Active'")
     hires = cursor.fetchall()
     
     if not hires:
-        st.info("No active onboarding profiles found. Go to '➕ Add New Employee' to register your first worker!")
+        st.info("No active onboarding profiles found.")
     else:
         cols = st.columns(3)
         for idx, (h_id, emp_id, name, role, dept, manager, start_date, gender) in enumerate(hires):
@@ -127,13 +132,13 @@ if menu == "📊 New Hires Dashboard":
                 with st.container(border=True):
                     st.subheader(f"{gender_icon} {name}")
                     st.markdown(f"🆔 **Employee ID:** `{emp_id}`")
-                    st.markdown(f"⚧ **Gender:** `{gender}`")
                     st.markdown(f"🏢 **Department:** `{dept}`")
                     st.markdown(f"💼 **Position:** {role}")
                     st.write(f"**Reporting To:** {manager}")
                     st.write(f"**Expected Start:** {start_date}")
                     st.markdown("---")
                     
+                    # WhatsApp Alert Button
                     raw_msg = generate_whatsapp_message(emp_id, name, gender, dept, role, manager, start_date)
                     encoded_msg = urllib.parse.quote(raw_msg)
                     GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
@@ -148,11 +153,23 @@ if menu == "📊 New Hires Dashboard":
                         unsafe_allow_html=True
                     )
                     
+                    # Calculate overall completion for archiving trigger
+                    cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ?", (h_id,))
+                    t_tot, t_comp = cursor.fetchone()
+                    t_comp = t_comp if t_comp else 0
+                    overall_pct = int((t_comp / t_tot) * 100) if t_tot > 0 else 0
+                    
+                    # If employee hits 100%, show a success banner and an Archive button
+                    if overall_pct == 100:
+                        st.success("🎉 All Checklists Complete!")
+                        if st.button(f"🗃️ Archive {name.split()[0]}", key=f"arch_{h_id}"):
+                            cursor.execute("UPDATE new_hires SET status = 'Archived' WHERE id = ?", (h_id,))
+                            conn.commit()
+                            st.rerun()
+                        st.markdown("---")
+                    
                     for current_phase in PHASE_GROUPS:
-                        cursor.execute(
-                            "SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ? AND phase = ?", 
-                            (h_id, current_phase)
-                        )
+                        cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ? AND phase = ?", (h_id, current_phase))
                         total, completed = cursor.fetchone()
                         completed = completed if completed else 0
                         progress = int((completed / total) * 100) if total > 0 else 0
@@ -162,19 +179,56 @@ if menu == "📊 New Hires Dashboard":
                         st.progress(progress / 100)
     conn.close()
 
-# --- VIEW 2: OPERATIONAL CHECKLIST LAYER ---
-elif menu == "📋 Task Checklist View":
-    st.title("Onboarding Assistant — Checklist Layer")
-    st.caption("Review and manage specialized tasks organized by group phases.")
+# --- NEW VIEW 2: ARCHIVED ROSTER ---
+elif menu == "🗃️ Archived Roster":
+    st.title("🗃️ Archived Employee Records")
+    st.caption("A read-only repository of successfully completed onboarding histories.")
     st.markdown("---")
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name FROM new_hires")
+    # Pull only Archived profiles
+    cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Archived'")
+    archived_hires = cursor.fetchall()
+    
+    if not archived_hires:
+        st.info("No archived records found.")
+    else:
+        cols = st.columns(3)
+        for idx, (h_id, emp_id, name, role, dept, manager, start_date, gender) in enumerate(archived_hires):
+            gender_icon = "👨" if gender == "Male" else "👩"
+            
+            with cols[idx % 3]:
+                with st.container(border=True):
+                    st.subheader(f"{gender_icon} {name} (Archived)")
+                    st.markdown(f"🆔 **Employee ID:** `{emp_id}`")
+                    st.markdown(f"🏢 **Department:** `{dept}`")
+                    st.markdown(f"💼 **Position:** {role}")
+                    st.write(f"**Reporting To:** {manager}")
+                    st.write(f"**Completed Roster Track:** {start_date}")
+                    st.markdown("---")
+                    st.success("💯 100% Onboarding Verification Complete")
+                    
+                    # Quick option to un-archive back to active dashboard if needed
+                    if st.button("⏪ Restore to Active", key=f"rest_{h_id}"):
+                        cursor.execute("UPDATE new_hires SET status = 'Active' WHERE id = ?", (h_id,))
+                        conn.commit()
+                        st.rerun()
+    conn.close()
+
+# --- VIEW 3: OPERATIONAL CHECKLIST LAYER ---
+elif menu == "📋 Task Checklist View":
+    st.title("Onboarding Assistant — Checklist Layer")
+    st.markdown("---")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Checklists can only be managed for Active hires
+    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
     employee_options = cursor.fetchall()
     
     if not employee_options:
-        st.info("No employees registered yet. Go to '➕ Add New Employee' first!")
+        st.info("No active employees registered yet.")
     else:
         employee_dict = {f"[{emp_id}] {name}": h_id for h_id, emp_id, name in employee_options}
         selected_profile = st.selectbox("Select an employee to manage:", list(employee_dict.keys()))
@@ -185,21 +239,14 @@ elif menu == "📋 Task Checklist View":
         with left_col:
             for current_phase in PHASE_GROUPS:
                 st.markdown(f"### 📋 {current_phase}")
-                cursor.execute(
-                    "SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", 
-                    (selected_id, current_phase)
-                )
+                cursor.execute("SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (selected_id, current_phase))
                 tasks = cursor.fetchall()
                 
                 if not tasks:
-                    st.caption("_No specific tasks added to this group phase._")
+                    st.caption("_No specific tasks added._")
                 else:
                     for t_id, task_name, assigned_to, is_completed in tasks:
-                        checked = st.checkbox(
-                            label=f"**{task_name}** (Assigned to: `{assigned_to}`)", 
-                            value=bool(is_completed),
-                            key=f"task_{t_id}"
-                        )
+                        checked = st.checkbox(label=f"**{task_name}** (Assigned to: `{assigned_to}`)", value=bool(is_completed), key=f"task_{t_id}")
                         new_status = 1 if checked else 0
                         if new_status != is_completed:
                             cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (new_status, t_id))
@@ -210,26 +257,21 @@ elif menu == "📋 Task Checklist View":
         with right_col:
             st.subheader("➕ Create Custom Task")
             with st.form("new_task_form", clear_on_submit=True):
-                new_task_name = st.text_input("Task Title:", placeholder="e.g. Schedule Safety Briefing")
+                new_task_name = st.text_input("Task Title:")
                 new_phase = st.selectbox("Assign to Group Phase:", PHASE_GROUPS)
                 new_owner = st.selectbox("Assign Owner Role:", AVAILABLE_TEAMS)
                 
                 add_task_btn = st.form_submit_button("Add Task to Checklist")
                 if add_task_btn and new_task_name != "":
-                    cursor.execute(
-                        "INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department, is_completed) VALUES (?, ?, ?, ?, ?, 0)",
-                        (selected_id, new_task_name, new_phase, new_owner, new_owner)
-                    )
+                    cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department, is_completed) VALUES (?, ?, ?, ?, ?, 0)", (selected_id, new_task_name, new_phase, new_owner, new_owner))
                     conn.commit()
-                    st.success(f"Added custom task to {new_phase}!")
+                    st.success("Added custom task!")
                     st.rerun()
-                        
     conn.close()
 
-# --- VIEW 3: EMPLOYEE REGISTRATION FORM ---
+# --- VIEW 4: EMPLOYEE REGISTRATION FORM ---
 elif menu == "➕ Add New Employee":
     st.title("YCH Employee Profiles Management")
-    st.caption("Register new hires into the system database tracker seamlessly.")
     st.markdown("---")
     
     conn = get_db_connection()
@@ -271,7 +313,7 @@ elif menu == "➕ Add New Employee":
                 else:
                     saved_date_string = input_date_picker.strftime("%B %d, %Y")
                     cursor.execute(
-                        "INSERT INTO new_hires (employee_id, name, role, department, manager, start_date, gender) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO new_hires (employee_id, name, role, department, manager, start_date, gender, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')",
                         (input_emp_id, input_name, input_role, input_dept, input_manager, saved_date_string, input_gender)
                     )
                     new_hire_id = cursor.lastrowid
@@ -281,11 +323,9 @@ elif menu == "➕ Add New Employee":
                         ("Declaration form submission", "Group 1: Pre-boarding Checklist", "HR Team"),
                         ("Familiarization orientation briefing", "Group 1: Pre-boarding Checklist", "HR Team"),
                         ("Accountability form completion", "Group 1: Pre-boarding Checklist", "HR Team"),
-                        
                         ("HR Onboarding documentation processing", "Group 2: Day 1 Checklist", "HR Team"),
                         ("Security Training and warehouse entry processing", "Group 2: Day 1 Checklist", "Security Team"),
                         ("QAEHS Training and safety protocols review", "Group 2: Day 1 Checklist", "QA&EHS Team"),
-                        
                         ("Has the specific standard operating procedure (SOP) of the assigned department/account been explained thoroughly?", "Group 3: Monthly Engagement Checklist", "HR Team"),
                         ("Has the employee been properly introduced to the operations team and workspace buddy?", "Group 3: Monthly Engagement Checklist", "HR Team"),
                         ("Is the employee comfortable operating specialized equipment/tools assigned to their account?", "Group 3: Monthly Engagement Checklist", "QA&EHS Team"),
@@ -294,19 +334,12 @@ elif menu == "➕ Add New Employee":
                     ]
                     
                     for task_name, phase, assigned_to in default_roadmap_tasks:
-                        cursor.execute(
-                            "INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)",
-                            (new_hire_id, task_name, phase, assigned_to, input_dept)
-                        )
+                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_hire_id, task_name, phase, assigned_to, input_dept))
                     conn.commit()
                     conn.close()
                     
                     automated_msg = generate_whatsapp_message(input_emp_id, input_name, input_gender, input_dept, input_role, input_manager, saved_date_string)
-                    
-                    st.session_state["last_registered_worker"] = {
-                        "name": input_name,
-                        "msg_text": automated_msg
-                    }
+                    st.session_state["last_registered_worker"] = {"name": input_name, "msg_text": automated_msg}
                     st.rerun()
 
     if "last_registered_worker" in st.session_state:
@@ -317,49 +350,36 @@ elif menu == "➕ Add New Employee":
         
         st.markdown("---")
         st.success(f"🎉 Profile successfully saved for {w['name']}!")
-        st.markdown(
-            f'<a href="{fixed_whatsapp_url}" target="_blank" style="text-decoration:none;">'
-            f'<button style="background-color:#25D366; color:white; border:none; padding:14px 28px; '
-            f'border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer; width:100%; '
-            f'box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">'
-            f'🚀 Deploy Direct WhatsApp Group Notification'
-            f'</button></a>',
-            unsafe_allow_html=True
-        )
+        st.markdown(f'<a href="{fixed_whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="background-color:#25D366; color:white; border:none; padding:14px 28px; border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer; width:100%; box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">🚀 Deploy Direct WhatsApp Group Notification</button></a>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Clear View & Register Next Record"):
             del st.session_state["last_registered_worker"]
             st.rerun()
 
-# --- VIEW 4: SYSTEM ADMINISTRATION ---
+# --- VIEW 5: SYSTEM ADMINISTRATION ---
 elif menu == "🚨 System Administration":
     st.title("System Records & Settings Administration")
-    st.caption("Manage database configurations, user lists, and roster profiles.")
     st.markdown("---")
-    
     admin_col1, admin_col2 = st.columns([1, 1], gap="large")
     
     with admin_col1:
         st.subheader("👤 Managers Masterlist Management")
-        
         with st.form("add_manager_form", clear_on_submit=True):
-            new_m_name = st.text_input("Enter New Manager Name:", placeholder="e.g. John Doe")
+            new_m_name = st.text_input("Enter New Manager Name:")
             submit_m = st.form_submit_button("➕ Register Manager")
-            
             if submit_m and new_m_name != "":
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
                     cursor.execute("INSERT INTO managers (manager_name) VALUES (?)", (new_m_name.strip(),))
                     conn.commit()
-                    st.success(f"Successfully added '{new_m_name}' to the dropdown selection masterlist!")
+                    st.success(f"Added '{new_m_name}' successfully!")
                 except sqlite3.IntegrityError:
-                    st.error("This manager is already registered in the system backend.")
+                    st.error("This manager is already registered.")
                 conn.close()
                 st.rerun()
                 
         st.markdown("<br>", unsafe_allow_html=True)
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, manager_name FROM managers ORDER BY manager_name ASC")
@@ -368,48 +388,33 @@ elif menu == "🚨 System Administration":
         
         if m_list:
             with st.form("remove_manager_form", clear_on_submit=True):
-                st.markdown("**Remove Manager from Dropdown Options:**")
                 m_dict = {m_name: m_id for m_id, m_name in m_list}
-                target_m = st.selectbox("Select manager to remove:", list(m_dict.keys()), key="del_m_select")
-                
-                delete_m_btn = st.form_submit_button("❌ Remove Selected Manager", type="primary")
-                
-                if delete_m_btn:
+                target_m = st.selectbox("Select manager to remove:", list(m_dict.keys()))
+                if st.form_submit_button("❌ Remove Selected Manager", type="primary"):
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute("DELETE FROM managers WHERE id = ?", (m_dict[target_m],))
                     conn.commit()
                     conn.close()
-                    st.success(f"Removed '{target_m}' from dropdown settings successfully!")
                     st.rerun()
 
     with admin_col2:
         st.subheader("🚨 Danger Zone: Remove Employee Profile")
-        st.caption("Permanently erase an employee profile card and their entire historical task database entries.")
-        st.markdown("<br>", unsafe_allow_html=True)
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, employee_id, name FROM new_hires")
         delete_options = cursor.fetchall()
         
         if not delete_options:
-            st.info("No active employee records currently available in the database to delete.")
+            st.info("No records available to delete.")
         else:
             delete_dict = {f"[{emp_id}] {name}": h_id for h_id, emp_id, name in delete_options}
             target_profile = st.selectbox("Select profile to destroy permanently:", list(delete_dict.keys()))
             target_id = delete_dict[target_profile]
-            
-            confirm_check = st.checkbox("I confirm that I want to permanently delete this worker and drop all linked data tasks.")
-            delete_button = st.button("Permanently Erase Profile", type="primary")
-            
-            if delete_button:
-                if not confirm_check:
-                    st.error("Operation Denied: Please check the confirmation checkbox flag first to proceed.")
-                else:
-                    cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (target_id,))
-                    cursor.execute("DELETE FROM new_hires WHERE id = ?", (target_id,))
-                    conn.commit()
-                    st.success(f"Success: Completely cleared data layers for {target_profile}!")
-                    st.rerun()
+            confirm_check = st.checkbox("I confirm that I want to permanently delete this worker.")
+            if st.button("Permanently Erase Profile", type="primary") and confirm_check:
+                cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (target_id,))
+                cursor.execute("DELETE FROM new_hires WHERE id = ?", (target_id,))
+                conn.commit()
+                st.rerun()
         conn.close()
