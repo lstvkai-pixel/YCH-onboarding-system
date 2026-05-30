@@ -22,143 +22,36 @@ def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Create tables (Base)
-    cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
+    # 1. Create tables only if they don't exist
+    cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, 
+        name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, 
+        gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
+        phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
     
-    # FORCE REPAIR: This block checks for the column and rebuilds the table if it's missing
+    # Check if force_password_change exists; if not, rebuild the table
     cursor.execute("PRAGMA table_info(user_accounts)")
     columns = [info[1] for info in cursor.fetchall()]
-    
     if 'force_password_change' not in columns:
         cursor.execute("DROP TABLE IF EXISTS user_accounts")
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, 
+        password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', 
+        force_password_change INTEGER DEFAULT 1)''')
     
-    cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', force_password_change INTEGER DEFAULT 1)''')
+    # Initial Admin Setup
     cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES ('HR0001', 'YCHADMIN', 'Employer', 0)")
     
-    # ... (Keep all other table creation code exactly the same as before) ...
-    conn.commit()
-    conn.close()
-
-    # ✅ FIXED: Drop the old table so the new one can be built correctly
-    cursor.execute("DROP TABLE IF EXISTS user_accounts")
-    
-    # 2. Secure Accounts Ledger Table (Now with force_password_change column)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL DEFAULT 'YCH1234',
-            role_type TEXT NOT NULL DEFAULT 'Employee',
-            force_password_change INTEGER DEFAULT 1
-        )
-    ''')
-    
-    # Default Employer account provision setup
-    cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES ('HR0001', 'YCHADMIN', 'Employer', 0)")
-    
-    # 3. Detailed Historical Training Hours Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS training_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hire_id INTEGER,
-            log_date TEXT NOT NULL,
-            classroom_hours INTEGER DEFAULT 0,
-            ojt_hours INTEGER DEFAULT 0,
-            safety_hours INTEGER DEFAULT 0,
-            technical_hours INTEGER DEFAULT 0,
-            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
-        )
-    ''')
-    
-    # 4. Tasks Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hire_id INTEGER,
-            task_name TEXT NOT NULL,
-            phase TEXT NOT NULL,
-            assigned_to TEXT NOT NULL,
-            department TEXT NOT NULL DEFAULT 'HR Team',
-            is_completed INTEGER DEFAULT 0,
-            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
-        )
-    ''')
-
-    # 5. Signed Documents Vault Storage Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS signed_documents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hire_id INTEGER,
-            doc_name TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            date_uploaded TEXT NOT NULL,
-            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
-        )
-    ''')
-    
-    # 6. LMS Modules Storage Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lms_materials (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            phase TEXT NOT NULL,
-            title TEXT NOT NULL,
-            doc_type TEXT NOT NULL,
-            file_path TEXT DEFAULT NULL
-        )
-    ''')
-    
-    # 7. Certification Ledger Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS certifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hire_id INTEGER,
-            cert_name TEXT NOT NULL,
-            issue_date TEXT NOT NULL,
-            expiry_date TEXT NOT NULL,
-            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
-        )
-    ''')
-    
-    # 8. Feedback Tickets Engine Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS feedback_tickets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            hire_id INTEGER,
-            category TEXT NOT NULL,
-            content TEXT NOT NULL,
-            ticket_status TEXT NOT NULL DEFAULT 'Open',
-            date_logged TEXT NOT NULL,
-            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
-        )
-    ''')
-    
-    # 9. Corporate Announcement Bulletin Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS announcements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            category TEXT NOT NULL,
-            content TEXT NOT NULL,
-            date_posted TEXT NOT NULL,
-            file_path TEXT DEFAULT NULL
-        )
-    ''')
-    
-    # 10. Managers Reference List Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS managers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            manager_name TEXT NOT NULL UNIQUE
-        )
-    ''')
-    
-    # Core internal systemic mappings alignment
-    cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
-    cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
-    cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
-    
-    cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
-    cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
+    # 2. Remaining Tables
+    cursor.execute('''CREATE TABLE IF NOT EXISTS training_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, log_date TEXT, classroom_hours INTEGER, ojt_hours INTEGER, safety_hours INTEGER, technical_hours INTEGER)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, task_name TEXT, phase TEXT, assigned_to TEXT, department TEXT, is_completed INTEGER)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS signed_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, doc_name TEXT, file_path TEXT, date_uploaded TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS lms_materials (id INTEGER PRIMARY KEY AUTOINCREMENT, phase TEXT, title TEXT, doc_type TEXT, file_path TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS certifications (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, cert_name TEXT, issue_date TEXT, expiry_date TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS feedback_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, category TEXT, content TEXT, ticket_status TEXT DEFAULT 'Open', date_logged TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
     conn.commit()
     conn.close()
