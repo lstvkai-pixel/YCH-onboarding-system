@@ -424,7 +424,7 @@ if menu == "🏢 Corporate Experience Landing":
     with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
     with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
-    tab_dash, tab_board, tab_news = st.tabs(["📢 Corporate News Feed"])
+    tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "📢 Corporate News Feed"])
     
     with tab_dash:
         conn = get_db_connection()
