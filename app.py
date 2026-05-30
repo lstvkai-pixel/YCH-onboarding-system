@@ -245,17 +245,22 @@ if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     
 st.markdown("""
     <style>
-        /* This removes the hover color change for the sidebar buttons */
-        [data-testid="stSidebar"] button:hover {
-            background-color: #002060 !important; /* Keep it the same as your sidebar color */
-            border-color: #002060 !important;
-            color: #002060 !important;
-        }
-        
-        /* This keeps the button looking solid when clicked */
-        [data-testid="stSidebar"] button:active {
+        /* Target buttons inside the sidebar specifically */
+        [data-testid="stSidebar"] button {
             background-color: #002060 !important;
-            border-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
+        }
+
+        /* Force the button to stay the same color when hovered or active */
+        [data-testid="stSidebar"] button:hover,
+        [data-testid="stSidebar"] button:active,
+        [data-testid="stSidebar"] button:focus {
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
