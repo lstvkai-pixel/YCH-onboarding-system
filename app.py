@@ -42,6 +42,18 @@ def init_database():
         )
     ''')
     
+    columns_to_add = [
+        ("photo_path", "TEXT DEFAULT NULL"),
+        ("phase3_approved", "INTEGER DEFAULT 0"),
+        ("phase4_approved", "INTEGER DEFAULT 0"),
+        ("phase5_approved", "INTEGER DEFAULT 0")
+    ]
+    for col_name, col_type in columns_to_add:
+        try:
+            cursor.execute(f"ALTER TABLE new_hires ADD COLUMN {col_name} {col_type}")
+        except sqlite3.OperationalError:
+            pass
+
     # 2. Detailed Historical Training Hours Table (For Monthly Auditing)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS training_logs (
@@ -164,19 +176,33 @@ st.markdown("""
         .ych-card {
             background-color: #FFFFFF;
             border-radius: 8px;
-            padding: 20px;
+            padding: 18px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             border-left: 5px solid #003366;
             margin-bottom: 15px;
+            height: 125px;
         }
         .ych-kpi-val {
-            font-size: 32px; font-weight: bold; color: #003366;
+            font-size: 32px; font-weight: bold; color: #003366; line-height: 1.1; margin-top: 4px;
         }
         .ych-kpi-lbl {
-            font-size: 14px; color: #64748B; font-weight: 500;
+            font-size: 14px; color: #64748B; font-weight: 600; margin-bottom: 0px;
         }
-        div.stButton > button:first-child {
-            background-color: #003366; color: white; border-radius: 4px;
+        .ych-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+            height: 42px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -225,7 +251,8 @@ def evaluate_achievements(hire_id, overall, phase_data, total_hours):
     if overall == 100: badges.append("🎓 Onboarding Graduate")
     return badges
 
-def assign_health_risk(overall):
+# ✅ NAME UPDATED: Changed from "Health Risk Indicator" to "Onboarding Status Health"
+def assign_status_health(overall):
     if overall >= 80: return "🟢 On Track"
     if overall >= 50: return "🟡 Delayed"
     return "🔴 Critical"
@@ -269,11 +296,10 @@ if menu == "🏢 Corporate Experience Landing":
     conn.close()
     
     k1, k2, k3, k4 = st.columns(4)
-    with k1: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Active Tracks</p><p class='ych-ych-kpi-val ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
-    # ✅ FIXED: Replaced legacy "YCH Graduates" with "Completed Onboarding"
-    with k2: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Completed Onboarding</p><p class='ych-ych-kpi-val ych-kpi-val'>{grad_c}</p></div>", unsafe_allow_html=True)
-    with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-ych-kpi-val ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
-    with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-ych-kpi-val ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
+    with k1: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Active Tracks</p><p class='ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
+    with k2: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Completed Onboarding</p><p class='ych-kpi-val'>{grad_c}</p></div>", unsafe_allow_html=True)
+    with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
+    with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
     tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])
     
@@ -290,7 +316,8 @@ if menu == "🏢 Corporate Experience Landing":
             for node in active_dataset:
                 h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = node
                 ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
-                health_state = assign_health_risk(ovr_pct)
+                # ✅ NAME UPDATED: Reflects Onboarding track milestone timeline tracking health cleanly
+                health_state = assign_status_health(ovr_pct)
                 total_h = get_total_learning_hours(h_id)
                 earned_achievements = evaluate_achievements(h_id, ovr_pct, p_breakdown, total_h)
                 
@@ -305,7 +332,8 @@ if menu == "🏢 Corporate Experience Landing":
                         st.subheader(f"{name} ({emp_id})")
                         st.markdown(f"💼 **{role}** | 🏬 {dept} | 👤 PIC: *{manager}*")
                         st.markdown(f"📱 Contact: `{mobile}` | 📅 Started: *{start_date}*")
-                        st.markdown(f"📈 Health Risk Indicator Status: **{health_state}**")
+                        # ✅ LABEL CORRECTION: Adjusted text on employee experience cards
+                        st.markdown(f"📈 Onboarding Status Health: **{health_state}**")
                         
                         if earned_achievements:
                             st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
@@ -314,41 +342,47 @@ if menu == "🏢 Corporate Experience Landing":
                         st.progress(ovr_pct / 100)
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        btn_col1, btn_col2 = st.columns(2)
-                        with btn_col1:
-                            raw_channel_msg = (
-                                f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
-                                f"*Employee Details*\n"
-                                f"• *Employee ID:* {emp_id}\n"
-                                f"• *Full Name:* {name}\n"
-                                f"• *Account Department:* {dept}\n"
-                                f"• *Job Position:* {role}\n"
-                                f"• *Reporting Manager:* {manager}\n"
-                                f"• *Training Start Date:* {start_date}\n\n"
-                                f"Please prepare all onboarding and training requirements accordingly."
-                            )
-                            encoded_channel = urllib.parse.quote(raw_channel_msg)
-                            GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
-                            channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}&context={GROUP_TOKEN}"
-                            st.markdown(f'<a href="{channel_url}" target="_blank"><button style="width:100%; padding:6px; background-color:#003366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:11px;">📢 Group Broadcast</button></a>', unsafe_allow_html=True)
+                        raw_channel_msg = (
+                            f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
+                            f"*Employee Details*\n"
+                            f"• *Employee ID:* {emp_id}\n"
+                            f"• *Full Name:* {name}\n"
+                            f"• *Account Department:* {dept}\n"
+                            f"• *Job Position:* {role}\n"
+                            f"• *Reporting Manager:* {manager}\n"
+                            f"• *Training Start Date:* {start_date}\n\n"
+                            f"Please prepare all onboarding and training requirements accordingly."
+                        )
+                        encoded_channel = urllib.parse.quote(raw_channel_msg)
+                        GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
+                        channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}&context={GROUP_TOKEN}"
                         
-                        with btn_col2:
-                            raw_progress_msg = (
-                                f"📊 *YCH Onboarding Progress Update*\n\n"
-                                f"• *Employee ID:* {emp_id}\n"
-                                f"• *Name:* {name}\n\n"
-                                f"📈 *Overall Completion:* {ovr_pct}%\n"
-                                f"• Phase 1: {p_breakdown['Phase 1']}%\n"
-                                f"• Phase 2: {p_breakdown['Phase 2']}%\n"
-                                f"• Phase 3: {p_breakdown['Phase 3']}%\n"
-                                f"• Phase 4: {p_breakdown['Phase 4']}%\n"
-                                f"• Phase 5: {p_breakdown['Phase 5']}%\n\n"
-                                f"Please continue completing the remaining onboarding requirements."
-                            )
-                            clean_phone = re.sub(r'\D', '', mobile)
-                            encoded_progress = urllib.parse.quote(raw_progress_msg)
-                            employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
-                            st.markdown(f'<a href="{employee_sms_url}" target="_blank"><button style="width:100%; padding:6px; background-color:#25D366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:11px;">📲 Send Progress</button></a>', unsafe_allow_html=True)
+                        raw_progress_msg = (
+                            f"📊 *YCH Onboarding Progress Update*\n\n"
+                            f"• *Employee ID:* {emp_id}\n"
+                            f"• *Name:* {name}\n\n"
+                            f"📈 *Overall Completion:* {ovr_pct}%\n"
+                            f"• Phase 1: {p_breakdown['Phase 1']}%\n"
+                            f"• Phase 2: {p_breakdown['Phase 2']}%\n"
+                            f"• Phase 3: {p_breakdown['Phase 3']}%\n"
+                            f"• Phase 4: {p_breakdown['Phase 4']}%\n"
+                            f"• Phase 5: {p_breakdown['Phase 5']}%\n\n"
+                            f"Please continue completing the remaining onboarding requirements."
+                        )
+                        clean_phone = re.sub(r'\D', '', mobile)
+                        encoded_progress = urllib.parse.quote(raw_progress_msg)
+                        employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
+
+                        st.markdown(f"""
+                            <div style='display: flex; gap: 10px; width: 100%;'>
+                                <a href='{channel_url}' target='_blank' style='flex: 1; text-decoration: none;'>
+                                    <button class='ych-action-btn' style='background-color: #003366;'>📢 Group Broadcast</button>
+                                </a>
+                                <a href='{employee_sms_url}' target='_blank' style='flex: 1; text-decoration: none;'>
+                                    <button class='ych-action-btn' style='background-color: #25D366;'>📲 Send Progress</button>
+                                </a>
+                            </div>
+                        """, unsafe_allow_html=True)
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         if ovr_pct == 100 and p3_a and p4_a and p5_a:
@@ -386,9 +420,7 @@ if menu == "🏢 Corporate Experience Landing":
                     st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
                     
     with tab_board:
-        # ✅ FIXED: Replaced legacy "Gamified Leaderboard" with Month-by-Month Training Hours analytics tracker
         st.subheader("📊 Monthly Training Hours Leaderboard")
-        
         current_year_month = datetime.now().strftime("%Y-%m")
         selected_month_str = st.text_input("📆 Filter Training Month Year (YYYY-MM):", value=current_year_month)
         
@@ -408,7 +440,6 @@ if menu == "🏢 Corporate Experience Landing":
             
         if board_data:
             df_board = pd.DataFrame(board_data).sort_values(by=[f"Training Hours ({selected_month_str})"], ascending=False).head(10)
-            
             num_rows = len(df_board)
             medals = []
             for i in range(num_rows):
@@ -422,7 +453,7 @@ if menu == "🏢 Corporate Experience Landing":
         else:
             st.info(f"No training hours logged for the month: {selected_month_str}. Use 'Task Checklist View' to log hours under a specific date context!")
             
-    with tab_news:
+    with tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])[2]:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -456,7 +487,7 @@ elif menu == "➕ Add New Employee":
         input_dept = st.selectbox("Allocated Logistics Hub Department:", YCH_DEPARTMENTS)
         input_role = st.text_input("Job Position / Operations Title:", placeholder="e.g. Reach Truck Operator")
         input_manager = st.selectbox("Reporting Manager/PIC Option:", manager_options) if manager_options else "No Manager Assigned"
-        input_start_dt = st.date_input("Start Date:")
+        input_date_picker = st.date_input("Start Date:")
         uploaded_pic = st.file_uploader("Upload Corporate Digital Employee Photo (.png, .jpg):", type=["png", "jpg", "jpeg"])
         
         if st.form_submit_button("Deploy Onboarding Track & Format Alert"):
@@ -475,7 +506,7 @@ elif menu == "➕ Add New Employee":
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
-                               (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_start_dt.strftime("%B %d, %Y"), input_gender, saved_img_path))
+                               (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, saved_img_path))
                 new_id = cursor.lastrowid
                 default_tasks = [
                     ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -570,7 +601,6 @@ elif menu == "📋 Task Checklist View":
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
             st.markdown("<hr>", unsafe_allow_html=True)
             
-            # ✅ FIXED: Expanded Training Hours logger to support an explicit, auditable date calendar field input
             st.subheader("⏱️ Log Training Hours Audit")
             with st.form("hours_form"):
                 log_date_picker = st.date_input("Training Session Date Context:")
@@ -584,7 +614,7 @@ elif menu == "📋 Task Checklist View":
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (sel_id, log_date_picker.strftime("%Y-%m-%d"), add_c, add_o, add_s, add_t))
                     conn.commit()
-                    st.success("Operational learning hours appended with explicit audit timestamps successfully.")
+                    st.success("Operational learning hours logged with calendar audit timestamps.")
                     st.rerun()
             conn.close()
 
@@ -706,7 +736,6 @@ elif menu == "📤 Export Reports":
             fig_dept = px.pie(df_exec, names="department", title="Breakdown by Corporate Account Cluster", hole=0.4, color_discrete_sequence=px.colors.sequential.YlGnBu)
             st.plotly_chart(fig_dept, use_container_width=True)
         with ec2:
-            # Replaced with general performance counts visualization
             fig_hours = px.histogram(df_exec, x="department", title="Candidate Counts Distributed Across Active Accounts", color_discrete_sequence=["#003366"])
             st.plotly_chart(fig_hours, use_container_width=True)
         st.markdown("<hr>", unsafe_allow_html=True)
