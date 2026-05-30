@@ -50,9 +50,18 @@ def init_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS lms_materials (id INTEGER PRIMARY KEY AUTOINCREMENT, phase TEXT, title TEXT, doc_type TEXT, file_path TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS certifications (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, cert_name TEXT, issue_date TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS feedback_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, category TEXT, content TEXT, ticket_status TEXT DEFAULT 'Open', date_logged TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
+    # Migration Check: Verify if expiry_date column exists in announcements table layout schema
+    cursor.pragma("table_info(announcements)")
+    ann_cols = [c[1] for c in cursor.fetchall()]
+    if "expiry_date" not in ann_cols:
+        try:
+            cursor.execute("ALTER TABLE announcements ADD COLUMN expiry_date TEXT")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -506,14 +515,22 @@ if menu == "🏢 Corporate Experience Landing":
             
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
+        
+        # ✅ FILTER OUT EXPIRED POSTS dynamically using the current calendar execution date boundary parameters
+        curr_time_str = datetime.now().strftime("%Y-%m-%d")
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT title, category, content, date_posted, file_path FROM announcements ORDER BY id DESC")
+        cursor.execute("""
+            SELECT title, category, content, date_posted, file_path 
+            FROM announcements 
+            WHERE expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ? 
+            ORDER BY id DESC
+        """, (curr_time_str,))
         notices = cursor.fetchall()
         conn.close()
         
         if not notices:
-            st.caption("_No corporate announcements posted in the ledger currently._")
+            st.caption("_No active corporate announcements posted in the ledger currently._")
         else:
             for title, cat, content, dt, f_path in notices:
                 st.markdown(f"##### 🔔 {title} `[{cat}]` — _Posted on {dt}_")
@@ -712,17 +729,31 @@ elif menu == "📚 Rules and Guidelines":
         sel_phase = st.selectbox("Filter Assets by Lifecycle Phase Context:", PHASE_GROUPS)
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT title, doc_type, file_path FROM lms_materials WHERE phase = ?", (sel_phase,))
+        cursor.execute("SELECT id, title, doc_type, file_path FROM lms_materials WHERE phase = ?", (sel_phase,))
         items = cursor.fetchall()
         conn.close()
+        
         if not items: 
             st.info("No training modules assigned yet.")
         else:
-            for title, d_type, f_path in items: 
-                st.markdown(f"📄 **{title}** `[{d_type}]`")
-                if f_path and os.path.exists(f_path):
-                    with open(f_path, "rb") as file_bytes:
-                        st.download_button(label=f"📥 Download {title}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_admin_lms_{title}")
+            for lms_id, title, d_type, f_path in items: 
+                c_item, c_actions = st.columns([4, 1])
+                with c_item:
+                    st.markdown(f"📄 **{title}** `[{d_type}]`")
+                    if f_path and os.path.exists(f_path):
+                        with open(f_path, "rb") as file_bytes:
+                            st.download_button(label=f"📥 Download {title}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_admin_lms_{lms_id}")
+                
+                # ✅ ADDED: Delete button to completely drop training asset nodes from disk/DB memory
+                with c_actions:
+                    if st.button("🗑️ Delete Asset", key=f"del_lms_{lms_id}", use_container_width=True):
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM lms_materials WHERE id = ?", (lms_id,))
+                        conn.commit()
+                        conn.close()
+                        st.success("Asset completely removed.")
+                        st.rerun()
                 st.markdown("---")
                 
     with tab_upload:
@@ -733,12 +764,10 @@ elif menu == "📚 Rules and Guidelines":
             
             uploaded_lms_file = st.file_uploader("Upload Training Document Asset File (.pdf, .png, .jpg, .docx):", type=["pdf", "png", "jpg", "jpeg", "docx"])
             
-            # ✅ TRIGGER: Perform conditional checking evaluation within click action handler block
             if st.form_submit_button("Deploy Training Checklist"):
                 if asset_title.strip() == "":
                     st.error("Validation Failed: Please enter a descriptive title heading context.")
                 elif uploaded_lms_file is None:
-                    # ✅ STRICT RULE INTERCEPTED: Block process submission flow if uploader contains no active bytes payload
                     st.error("Validation Failed: Uploading a file attachment is strictly mandatory before deployment tracking routes can register.")
                 else:
                     os.makedirs("lms_vault", exist_ok=True)
@@ -841,6 +870,14 @@ elif menu == "🚨 System Administration":
             a_body = st.text_area("Announcement Description Body Content:")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
             
+            # ✅ ADDED: Mandatory duration picker options mapping path cleanly
+            st.markdown("**📅 Schedule Options:**")
+            has_expiry = st.checkbox("Set an expiration date for this post?")
+            expiry_date_val = ""
+            if has_expiry:
+                expiry_date_picker = st.date_input("Optional Expiration Date (Hides after this day):", min_value=datetime.now())
+                expiry_date_val = expiry_date_picker.strftime("%Y-%m-%d")
+            
             if st.form_submit_button("📢 Publish Notice to Workspace") and a_title != "":
                 saved_ann_file = None
                 if a_file is not None:
@@ -850,12 +887,39 @@ elif menu == "🚨 System Administration":
                 
                 conn = get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path) VALUES (?, ?, ?, ?, ?)", 
-                               (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file))
+                cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path, expiry_date) VALUES (?, ?, ?, ?, ?, ?)", 
+                               (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file, expiry_date_val))
                 conn.commit()
                 conn.close()
                 st.success("📢 Bulletin notice published live successfully!")
                 st.rerun()
+
+        # ✅ ADDED: Announcement Control Deck Ledger interface map configuration row block
+        st.markdown("---")
+        st.subheader("⚙️ Manage Published Bulletins")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, title, date_posted FROM announcements ORDER BY id DESC")
+        all_notices_list = cursor.fetchall()
+        conn.close()
+        
+        if not all_notices_list:
+            st.caption("No published bulletins found.")
+        else:
+            for n_id, n_title, n_date in all_notices_list:
+                cn_text, cn_btn = st.columns([3, 1])
+                with cn_text:
+                    st.markdown(f"• **{n_title}** — _({n_date})_")
+                with cn_btn:
+                    if st.button("🗑️ Delete Notice", key=f"del_ann_node_{n_id}", use_container_width=True):
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM announcements WHERE id = ?", (n_id,))
+                        conn.commit()
+                        conn.close()
+                        st.success("Notice completely wiped from dashboard ledger.")
+                        st.rerun()
+
     with adm_c2:
         st.subheader("🔑 Employee Password Override Control Panel")
         with st.form("password_reset_form", clear_on_submit=True):
