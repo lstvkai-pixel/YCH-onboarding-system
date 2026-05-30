@@ -304,16 +304,19 @@ if st.session_state["user_role"] == "Employee":
                     if earned_achievements:
                         st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### Onboarding Journey Track Progress Map")
-            st.columns_space = st.columns(5)
+            
+            # ✅ Here it is assigned to m_cols
+            m_cols = st.columns(5)
             for step_idx, phase_spec in enumerate(PHASE_GROUPS):
                 p_code = phase_spec.split(":")[0]
                 p_val = p_breakdown[p_code]
-                with columns_space[step_idx]:
+                
+                # ✅ FIXED: Changed from columns_space to m_cols to match the variable above!
+                with m_cols[step_idx]:
                     bg_lbl = "🔵" if p_val == 100 else ("🟠" if p_val > 0 else "⚪")
                     st.markdown(f"<div style='text-align:center; font-size:12px; background:#EEF2F6; padding:8px; border-radius:4px;'>{bg_lbl} <b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
-
             st.markdown("<br><hr><br>", unsafe_allow_html=True)
             st.subheader("📋 Detailed Individual Milestones Task Checklist Logs")
             for current_phase in PHASE_GROUPS:
