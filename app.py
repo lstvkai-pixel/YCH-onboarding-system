@@ -300,7 +300,6 @@ if menu == "🏢 Corporate Experience Landing":
     with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
     with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
-    # ✅ FIX: Fixed the bundled layout assignments to clear out the SyntaxError
     tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])
     
     with tab_dash:
@@ -451,6 +450,7 @@ if menu == "🏢 Corporate Experience Landing":
         else:
             st.info(f"No training hours logged for the month: {selected_month_str}. Use 'Task Checklist View' to log hours under a specific date context!")
             
+    # ✅ FIX: Evaluated separate tab context layout variable declarations
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         conn = get_db_connection()
@@ -494,8 +494,7 @@ elif menu == "➕ Add New Employee":
                 st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers.")
             elif input_name == "" or len(clean_mob) < 8 or input_manager == "No Manager Assigned":
                 st.error("Validation Failed: Check empty fields or length requirements.")
-            else_block = True
-            if 'else_block' in locals():
+            else:
                 saved_img_path = None
                 if uploaded_pic:
                     os.makedirs("photos", exist_ok=True)
