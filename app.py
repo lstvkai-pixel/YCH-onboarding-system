@@ -297,10 +297,8 @@ if st.session_state["user_role"] == "Employee":
         }
     </style>
 """, unsafe_allow_html=True)
-    
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
-    
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
     conn = get_db_connection()
