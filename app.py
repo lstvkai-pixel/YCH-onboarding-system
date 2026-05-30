@@ -301,7 +301,6 @@ if st.session_state["user_role"] == "Employee":
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
             conn = get_db_connection()
             cursor = conn.cursor()
-            # ✅ FIXED: Now fetching the file_path so employees can actually download the modules
             cursor.execute("SELECT title, doc_type, file_path FROM lms_materials WHERE phase = ?", (sel_phase,))
             items = cursor.fetchall()
             conn.close()
@@ -313,9 +312,8 @@ if st.session_state["user_role"] == "Employee":
                     st.markdown(f"📄 **{title}** `[{d_type}]` — _Read and understand guidelines carefully._")
                     if f_path and os.path.exists(f_path):
                         with open(f_path, "rb") as file_bytes:
-                            st.download_button(label=f"📥 Download {title} File", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_lms_{title}")
+                            st.download_button(label=f"📥 Download {title} Manual", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"emp_dl_{title}")
                     st.markdown("---")
-    st.sidebar.image("https://images.squarespace-cdn.com/content/v1/5b3dc43df9a61e3f89839443/1531278149174-U37XF1XHLR5H5E737Q4V/YCH+logo.jpg", use_column_width=True)
     st.stop()
 
 # ==========================================
@@ -323,7 +321,7 @@ if st.session_state["user_role"] == "Employee":
 # ==========================================
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
-    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "📤 Export Reports", "🚨 System Administration"]
+    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Rules and Guidelines", "📤 Export Reports", "🚨 System Administration"]
 )
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
@@ -704,9 +702,9 @@ elif menu == "📋 Task Checklist View":
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
             conn.close()
 
-# --- WORKSPACE: LEARNING CENTER ---
-elif menu == "📚 Learning Center":
-    st.title("📚 YCH Group Learning Management System (LMS)")
+# --- WORKSPACE: RULES AND GUIDELINES ---
+elif menu == "📚 Rules and Guidelines":
+    st.title("📚 SOP and Manual")
     st.markdown("---")
     tab_view, tab_upload = st.tabs(["📖 Training Materials Repository", "📤 Upload New Learning Asset"])
     
@@ -728,31 +726,34 @@ elif menu == "📚 Learning Center":
                 st.markdown("---")
                 
     with tab_upload:
-        # ✅ FIXED: Form updated to include physical file uploader before deployment button parameter mapping
         with st.form("lms_upload_form", clear_on_submit=True):
             asset_title = st.text_input("Module Training Document Title:")
             asset_phase = st.selectbox("Link Material to Target Phase:", PHASE_GROUPS)
             asset_type = st.selectbox("Document Classification Type:", ["SOP PDF", "Work Instruction", "Safety Manual", "Training Guidelines"])
             
-            # Added File Uploader block input slot right here
             uploaded_lms_file = st.file_uploader("Upload Training Document Asset File (.pdf, .png, .jpg, .docx):", type=["pdf", "png", "jpg", "jpeg", "docx"])
             
-            if st.form_submit_button("Deploy Training Checklist") and asset_title != "":
-                saved_file_path = None
-                if uploaded_lms_file is not None:
+            # ✅ TRIGGER: Perform conditional checking evaluation within click action handler block
+            if st.form_submit_button("Deploy Training Checklist"):
+                if asset_title.strip() == "":
+                    st.error("Validation Failed: Please enter a descriptive title heading context.")
+                elif uploaded_lms_file is None:
+                    # ✅ STRICT RULE INTERCEPTED: Block process submission flow if uploader contains no active bytes payload
+                    st.error("Validation Failed: Uploading a file attachment is strictly mandatory before deployment tracking routes can register.")
+                else:
                     os.makedirs("lms_vault", exist_ok=True)
                     saved_file_path = f"lms_vault/{int(datetime.now().timestamp())}_{uploaded_lms_file.name}"
                     with open(saved_file_path, "wb") as f_out:
                         f_out.write(uploaded_lms_file.getbuffer())
-                
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO lms_materials (phase, title, doc_type, file_path) VALUES (?, ?, ?, ?)", 
-                               (asset_phase, asset_title, asset_type, saved_file_path))
-                conn.commit()
-                conn.close()
-                st.success(f"🎉 Success: deployed '{asset_title}' material node smoothly!")
-                st.rerun()
+                    
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO lms_materials (phase, title, doc_type, file_path) VALUES (?, ?, ?, ?)", 
+                                   (asset_phase, asset_title, asset_type, saved_file_path))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"🎉 Success: deployed '{asset_title}' document asset node cleanly!")
+                    st.rerun()
 
 elif menu == "📤 Export Reports":
     st.title("📤 Multi-Roster Extraction & Executive Reports Engine")
