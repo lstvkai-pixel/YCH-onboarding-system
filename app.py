@@ -234,7 +234,6 @@ def assign_health_risk(overall):
 # ==========================================
 # STREAMLIT UI CONFIGURATION & NAVIGATION
 # ==========================================
-# ✅ FIX 1: Removed broken image layout and replaced it with clean corporate text branding
 st.sidebar.markdown("<h2 style='color: #003366; font-family: sans-serif; font-weight: 800; margin-bottom: 0px;'>🏢 YCH GROUP</h2>", unsafe_allow_html=True)
 st.sidebar.caption("Human Resources Experience Hub")
 st.sidebar.markdown("---")
@@ -244,21 +243,16 @@ menu = st.sidebar.radio(
     ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "🏅 Certification Center", "💬 Employee Feedback Portal", "📤 Export Reports", "🚨 System Administration"]
 )
 
-# --- WORKSPACE 1: REFINED HR CORPORATE LANDING PAGE ---
+# --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
 if menu == "🏢 Corporate Experience Landing":
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h1>", unsafe_allow_html=True)
     st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400; margin-top: -10px;'>Nurturing Talent, Driving Operational Excellence, Building Careers</h5>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    m1, m2, m3 = st.columns(3)
-    with m1:
-        st.markdown("<div class='ych-card'><p class='ych-kpi-lbl'>🏢 OUR MISSION</p><b>To build the logistics super-highway in Asia through tech innovation and supply chain mastery.</b></div>", unsafe_allow_html=True)
-    with m2:
-        st.markdown("<div class='ych-card'><p class='ych-kpi-lbl'>👁️ OUR VISION</p><b>To be the leading supply chain solutions partner of choice across the Asia-Pacific network.</b></div>", unsafe_allow_html=True)
-    with m3:
-        st.markdown("<div class='ych-card'><p class='ych-kpi-lbl'>🌟 CORE VALUES (RISE)</p><b>Reliability, Integrity, Innovation, Safety, and Operational Excellence parameters.</b></div>", unsafe_allow_html=True)
+    # ✅ REMOVED: The Mission, Vision, and Core Values row block sections
         
     # High Level Enterprise Metric Scorecards
     conn = get_db_connection()
@@ -320,24 +314,45 @@ if menu == "🏢 Corporate Experience Landing":
                     with dc3:
                         st.metric("Overall Completion Progress", f"{ovr_pct}%")
                         st.progress(ovr_pct / 100)
+                        st.markdown("<br>", unsafe_allow_html=True)
                         
-                        raw_progress_msg = (
-                            f"📊 *YCH Onboarding Progress Update*\n\n"
-                            f"• *Employee ID:* {emp_id}\n"
-                            f"• *Name:* {name}\n\n"
-                            f"📈 *Overall Completion:* {ovr_pct}%\n"
-                            f"• Phase 1: {p_breakdown['Phase 1']}%\n"
-                            f"• Phase 2: {p_breakdown['Phase 2']}%\n"
-                            f"• Phase 3: {p_breakdown['Phase 3']}%\n"
-                            f"• Phase 4: {p_breakdown['Phase 4']}%\n"
-                            f"• Phase 5: {p_breakdown['Phase 5']}%\n\n"
-                            f"Please continue completing the remaining onboarding requirements."
-                        )
-                        clean_phone = re.sub(r'\D', '', mobile)
-                        encoded_progress = urllib.parse.quote(raw_progress_msg)
-                        employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
-                        st.markdown(f'<a href="{employee_sms_url}" target="_blank"><button style="width:100%; padding:6px; background-color:#25D366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:12px; margin-bottom:5px;">📲 Send Progress Update</button></a>', unsafe_allow_html=True)
+                        btn_col1, btn_col2 = st.columns(2)
+                        with btn_col1:
+                            raw_channel_msg = (
+                                f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
+                                f"*Employee Details*\n"
+                                f"• *Employee ID:* {emp_id}\n"
+                                f"• *Full Name:* {name}\n"
+                                f"• *Account Department:* {dept}\n"
+                                f"• *Job Position:* {role}\n"
+                                f"• *Reporting Manager:* {manager}\n"
+                                f"• *Training Start Date:* {start_date}\n\n"
+                                f"Please prepare all onboarding and training requirements accordingly."
+                            )
+                            encoded_channel = urllib.parse.quote(raw_channel_msg)
+                            GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
+                            channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}&context={GROUP_TOKEN}"
+                            st.markdown(f'<a href="{channel_url}" target="_blank"><button style="width:100%; padding:6px; background-color:#003366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:11px;">📢 Group Broadcast</button></a>', unsafe_allow_html=True)
                         
+                        with btn_col2:
+                            raw_progress_msg = (
+                                f"📊 *YCH Onboarding Progress Update*\n\n"
+                                f"• *Employee ID:* {emp_id}\n"
+                                f"• *Name:* {name}\n\n"
+                                f"📈 *Overall Completion:* {ovr_pct}%\n"
+                                f"• Phase 1: {p_breakdown['Phase 1']}%\n"
+                                f"• Phase 2: {p_breakdown['Phase 2']}%\n"
+                                f"• Phase 3: {p_breakdown['Phase 3']}%\n"
+                                f"• Phase 4: {p_breakdown['Phase 4']}%\n"
+                                f"• Phase 5: {p_breakdown['Phase 5']}%\n\n"
+                                f"Please continue completing the remaining onboarding requirements."
+                            )
+                            clean_phone = re.sub(r'\D', '', mobile)
+                            encoded_progress = urllib.parse.quote(raw_progress_msg)
+                            employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
+                            st.markdown(f'<a href="{employee_sms_url}" target="_blank"><button style="width:100%; padding:6px; background-color:#25D366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:11px;">📲 Send Progress</button></a>', unsafe_allow_html=True)
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
                         if ovr_pct == 100 and p3_a and p4_a and p5_a:
                             pdf_buffer = io.BytesIO()
                             doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
@@ -389,7 +404,6 @@ if menu == "🏢 Corporate Experience Landing":
         if board_data:
             df_board = pd.DataFrame(board_data).sort_values(by=["Completion Rate (%)", "Learning Hours"], ascending=False).head(10)
             
-            # ✅ FIX 2: Dynamic Leaderboard Medal assignment to prevent length-match ValueError crashes
             num_rows = len(df_board)
             medals = []
             for i in range(num_rows):
@@ -435,12 +449,12 @@ elif menu == "➕ Add New Employee":
         input_mobile = st.text_input("Mobile Number (Minimum 8 digits, numeric only):").strip()
         input_gender = st.selectbox("Gender:", ["Male", "Female"])
         input_dept = st.selectbox("Allocated Logistics Hub Department:", YCH_DEPARTMENTS)
-        input_role = st.text_input("Job Position / Operations Title:", placeholder="e.g. Forklift Operator")
+        input_role = st.text_input("Job Position / Operations Title:", placeholder="e.g. Reach Truck Operator")
         input_manager = st.selectbox("Reporting Manager/PIC Option:", manager_options) if manager_options else "No Manager Assigned"
         input_start_dt = st.date_input("Start Date:")
         uploaded_pic = st.file_uploader("Upload Corporate Digital Employee Photo (.png, .jpg):", type=["png", "jpg", "jpeg"])
         
-        if st.form_submit_button("Deploy System Onboarding Roadmap Trace"):
+        if st.form_submit_button("Deploy Onboarding Track & Format Alert"):
             clean_mob = re.sub(r'\D', '', input_mobile)
             if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
                 st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers.")
@@ -495,7 +509,7 @@ elif menu == "📋 Task Checklist View":
         st.info("No active employee tracking profiles detected.")
     else:
         employee_dict = {f"[{emp[1]}] {emp[2]}": emp[0] for emp in active_dataset}
-        sel_worker = st.selectbox("Select target workforce record:", list(employee_dict.keys()))
+        sel_worker = st.selectbox("Select an employee to manage:", list(employee_dict.keys()))
         sel_id = employee_dict[sel_worker]
         worker_record = [a for a in active_dataset if a[0] == sel_id][0]
         p3_app, p4_app, p5_app = worker_record[3], worker_record[4], worker_record[5]
@@ -737,12 +751,3 @@ elif menu == "🚨 System Administration":
         if not del_opts: st.info("No employee records found.")
         else:
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
-            target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
-            p_check = st.checkbox("Confirm permanent account removal deletion.")
-            if st.button("Permanently Erase Profile", type="primary") and p_check:
-                cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
-                cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                conn.commit()
-                st.success("Purged out completely.")
-                st.rerun()
-        conn.close()
