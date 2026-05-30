@@ -12,9 +12,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 
-# Set page config for a professional "Wide" corporate layout
-st.set_page_config(page_title="YCH EX Platform", layout="wide")
-
 # ==========================================
 # DATABASE ENTERPRISE BACKEND LOGIC
 # ==========================================
@@ -24,57 +21,55 @@ def get_db_connection():
 def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Ensure all tables exist
+    
+    # 1. Create tables only if they don't exist
     cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, 
         name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, 
         gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
         phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
     
+    # Check if force_password_change exists; if not, rebuild the table
+    cursor.execute("PRAGMA table_info(user_accounts)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if 'force_password_change' not in columns:
+        cursor.execute("DROP TABLE IF EXISTS user_accounts")
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, 
         password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', 
         force_password_change INTEGER DEFAULT 1)''')
     
+    # Initial Admin Setup
     cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES ('HR0001', 'YCHADMIN', 'Employer', 0)")
     
+    # 2. Remaining Tables
     cursor.execute('''CREATE TABLE IF NOT EXISTS training_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, log_date TEXT, classroom_hours INTEGER, ojt_hours INTEGER, safety_hours INTEGER, technical_hours INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, task_name TEXT, phase TEXT, assigned_to TEXT, department TEXT, is_completed INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS signed_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, doc_name TEXT, file_path TEXT, date_uploaded TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS lms_materials (id INTEGER PRIMARY KEY AUTOINCREMENT, phase TEXT, title TEXT, doc_type TEXT, file_path TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS certifications (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, cert_name TEXT, issue_date TEXT, expiry_date TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS feedback_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, category TEXT, content TEXT, ticket_status TEXT DEFAULT 'Open', date_logged TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
+    # Ensure announcements schema is verified dynamically
+    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, 
+        content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
+        
+    cursor.execute("PRAGMA table_info(announcements)")
+    ann_cols = [c[1] for c in cursor.fetchall()]
+    if "expiry_date" not in ann_cols:
+        try:
+            cursor.execute("ALTER TABLE announcements ADD COLUMN expiry_date TEXT")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
-    
+
 init_database()
 
-# ==========================================
-# CORPORATE BRANDING (THEME)
-# ==========================================
-st.markdown("""
-    <style>
-        .stApp { background-color: #F8FAFC; }
-        [data-testid="stSidebar"] { background-color: #002060; }
-        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
-        h1, h2, h3 { color: #002060; font-family: sans-serif; }
-        .ych-card {
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            border-left: 6px solid #C5A059;
-            margin-bottom: 20px;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Add Logo to Sidebar
-if os.path.exists("YCH-EX.jpeg"):
-    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)
-st.sidebar.markdown("---")
-    
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
 # ==========================================
@@ -190,7 +185,7 @@ for state_key, default_value in [
     ("user_role", None),
     ("change_pwd", False),
     ("p_check_state", False),
-    ("ann_posted_success", False)
+    ("ann_posted_success", False)  # Track announcement notifications cleanly
 ]:
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
@@ -242,28 +237,6 @@ if st.session_state.get("change_pwd", False):
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
-    
-st.markdown("""
-    <style>
-        /* Target buttons inside the sidebar specifically */
-        [data-testid="stSidebar"] button {
-            background-color: #002060 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #002060 !important;
-            box-shadow: none !important;
-        }
-
-        /* Force the button to stay the same color when hovered or active */
-        [data-testid="stSidebar"] button:hover,
-        [data-testid="stSidebar"] button:active,
-        [data-testid="stSidebar"] button:focus {
-            background-color: #002060 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #002060 !important;
-            box-shadow: none !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
 
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
@@ -611,7 +584,7 @@ elif menu == "➕ Add New Employee":
                     # 2. Provision Account Access Ledger
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    # 3. Inject structural roadmap default tasks list mapping loop
+                    # 3. Inject default task matrix framework mapping pipeline loop
                     default_tasks = [
                         ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                         ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -640,7 +613,6 @@ elif menu == "➕ Add New Employee":
                     st.subheader("📲 Send Credentials")
                     wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
                     wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
-                    
                     st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
                     
                 except sqlite3.IntegrityError:
@@ -667,28 +639,6 @@ elif menu == "📋 Task Checklist View":
         
         left_pane, right_pane = st.columns([2, 1])
         with left_pane:
-            # ➕ FEATURE: Add Custom Task Form
-            with st.expander("➕ Add Custom Task to This Employee", expanded=False):
-                with st.form("add_custom_task_form", clear_on_submit=True):
-                    new_task_name = st.text_input("Task Name:", placeholder="e.g. Submit BIR Form 2316")
-                    new_task_phase = st.selectbox("Assign to Phase:", PHASE_GROUPS)
-                    new_task_team = st.selectbox("Ownership Action Team Role:", AVAILABLE_TEAMS)
-                    
-                    if st.form_submit_button("Incorporate Task into Checklist"):
-                        if new_task_name.strip() == "":
-                            st.error("Please enter a task name.")
-                        else:
-                            conn = get_db_connection()
-                            cursor = conn.cursor()
-                            cursor.execute("""
-                                INSERT INTO tasks (hire_id, task_name, phase, assigned_to, is_completed) 
-                                VALUES (?, ?, ?, ?, 0)
-                            """, (sel_id, new_task_name, new_task_phase, new_task_team))
-                            conn.commit()
-                            conn.close()
-                            st.success(f"🎉 '{new_task_name}' added to {new_task_phase.split(':')[0]}!")
-                            st.rerun()
-
             conn = get_db_connection()
             cursor = conn.cursor()
             for step_num, phase_str in enumerate(PHASE_GROUPS, start=1):
@@ -922,8 +872,9 @@ elif menu == "🚨 System Administration":
         
         # ✅ FIXED: Changed clear_on_submit to True so form fields reset blank automatically!
         with st.form("ann_form", clear_on_submit=True):
+            # Added precise key bindings to session state mapping variables
             a_title = st.text_input("Announcement Title Heading:", key="txt_title")
-            a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
+            a_cat = st.selectbox("Target Classification Group:", ["HR Memorandum", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
             a_body = st.text_area("Announcement Description Body Content:", key="txt_body")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"], key="file_attach")
             
