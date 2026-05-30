@@ -679,7 +679,7 @@ elif menu == "➕ Add New Employee":
                 except sqlite3.IntegrityError:
                     st.error("Error: This Employee ID already exists in the database.")
                 conn.close()
-                
+
 # --- WORKSPACE 3: CHECKLIST VIEW ---
 elif menu == "📋 Task Checklist View":
     st.title("📋 Phased Checklist Processing & Verification Layer")
@@ -938,6 +938,24 @@ elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
     adm_c1, adm_c2 = st.columns([1, 1], gap="large")
     with adm_c1:
+        st.markdown("---")
+        st.subheader("➕ Create New Admin Account")
+        with st.form("new_admin_form", clear_on_submit=True):
+            new_admin_id = st.text_input("New Admin Username/ID:").strip().upper()
+            new_admin_pass = st.text_input("New Admin Password:", type="password")
+            if st.form_submit_button("Create Admin"):
+                if new_admin_id and new_admin_pass:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, ?, 'Employer', 0)", 
+                                       (new_admin_id, new_admin_pass))
+                        conn.commit()
+                        st.success(f"Admin '{new_admin_id}' created successfully!")
+                    except sqlite3.IntegrityError:
+                        st.error("Admin ID already exists.")
+                    conn.close()
+                    st.rerun()
         st.subheader("👤 Managers Masterlist Validation Options")
         with st.form("admin_m_form_v2", clear_on_submit=True):
             new_manager = st.text_input("Register New Operation Manager / PIC:")
