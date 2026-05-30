@@ -1,6 +1,9 @@
 import sqlite3
 import streamlit as st
 import urllib.parse
+import re
+import pandas as pd
+import io
 
 # ==========================================
 # DATABASE BACKEND LOGIC (The Engine)
@@ -12,11 +15,12 @@ def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. New Hires Table (With Status column added for archiving)
+    # 1. New Hires Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS new_hires (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id TEXT NOT NULL DEFAULT 'N/A',
+            mobile_number TEXT NOT NULL DEFAULT 'N/A',
             name TEXT NOT NULL,
             role TEXT NOT NULL,
             department TEXT NOT NULL DEFAULT 'HR Team',
@@ -27,7 +31,12 @@ def init_database():
         )
     ''')
     
-    # Migration safety net: Adds 'status' column dynamically if it doesn't exist
+    # SYSTEM MIGRATION: Add mobile_number column safely without damaging existing data rows
+    try:
+        cursor.execute("ALTER TABLE new_hires ADD COLUMN mobile_number TEXT NOT NULL DEFAULT 'N/A'")
+    except sqlite3.OperationalError:
+        pass
+
     try:
         cursor.execute("ALTER TABLE new_hires ADD COLUMN status TEXT NOT NULL DEFAULT 'Active'")
     except sqlite3.OperationalError:
@@ -52,6 +61,11 @@ def init_database():
         )
     ''')
     
+    # SYSTEM MIGRATION: Automatically transform old Group records to the new Phase configurations safely
+    cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
+    cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
+    cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
+    
     # 3. Managers Masterlist Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS managers (
@@ -65,36 +79,9 @@ def init_database():
 
 init_database()
 
-def generate_whatsapp_message(emp_id, name, gender, dept, role, manager, start_date):
-    return (
-        f"🚨 *[YCH_HR Alert] New Onboarding Training Scheduled*\n\n"
-        f"Dear Teams, a new employee profile has been deployed to the system roster. "
-        f"Please prepare to conduct the required phased training sessions on their starting date:\n\n"
-        f"📝 *EMPLOYEE LOGISTICS PROFILE:*\n"
-        f"• *Employee ID:* {emp_id}\n"
-        f"• *Full Name:* {name}\n"
-        f"• *Gender:* {gender}\n"
-        f"• *Account Department:* {dept}\n"
-        f"• *Job Position:* {role}\n"
-        f"• *Reporting Manager:* {manager}\n"
-        f"• *Training Start Date:* {start_date}\n\n"
-        f"Please monitor progress for Group 1, Group 2, and Group 3 checklists directly inside the system dashboard."
-    )
-
 # ==========================================
-# STREAMLIT FRONTEND LOGIC (The Presentation)
+# CONFIGURATION CONSTANTS & ENUMS
 # ==========================================
-st.set_page_config(page_title="YCH_HR - Onboarding System", layout="wide")
-
-st.sidebar.title("🏢 YCH_HR")
-st.sidebar.caption("HR Onboarding Management System")
-st.sidebar.markdown("---")
-
-menu = st.sidebar.radio(
-    "WORKSPACE MENU", 
-    ["📊 New Hires Dashboard", "🗃️ Archived Roster", "📋 Task Checklist View", "➕ Add New Employee", "🚨 System Administration"]
-)
-
 YCH_DEPARTMENTS = [
     "HR Department", "QAEHS Department", "Procurement Department",
     "Freight & Transport Department", "Finance Department", "Ops Abott_Inplant",
@@ -103,132 +90,229 @@ YCH_DEPARTMENTS = [
 ]
 
 AVAILABLE_TEAMS = ["HR Team", "Security Team", "QA&EHS Team"]
+
+# Fully updated Phase Configuration Roadmap array
 PHASE_GROUPS = [
-    "Group 1: Pre-boarding Checklist", 
-    "Group 2: Day 1 Checklist", 
-    "Group 3: Monthly Engagement Checklist"
+    "Phase 1: Pre-boarding Checklist",
+    "Phase 2: Day 1 Checklist",
+    "Phase 3: Technical Training Checklist",
+    "Phase 4: Performance Assessment Checklist",
+    "Phase 5: Employee Engagement & Follow-up Checklist"
 ]
 
-# --- VIEW 1: ACTIVE DASHBOARD ---
+# ==========================================
+# SYSTEM WORKFLOW HELPER UTILITIES
+# ==========================================
+def generate_whatsapp_message(emp_id, name, dept, role, manager, start_date):
+    return (
+        f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
+        f"*Employee Details*\n"
+        f"• *Employee ID:* {emp_id}\n"
+        f"• *Full Name:* {name}\n"
+        f"• *Account Department:* {dept}\n"
+        f"• *Job Position:* {role}\n"
+        f"• *Reporting Manager:* {manager}\n"
+        f"• *Training Start Date:* {start_date}\n\n"
+        f"Please prepare all onboarding and training requirements accordingly."
+    )
+
+def calculate_completion_metrics(hire_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Global Rate Calculation
+    cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ?", (hire_id,))
+    total_tasks, completed_tasks = cursor.fetchone()
+    completed_tasks = completed_tasks if completed_tasks else 0
+    overall_pct = int((completed_tasks / total_tasks) * 100) if total_tasks > 0 else 0
+    
+    # Individual Phase Calculations
+    phase_metrics = {}
+    for phase in PHASE_GROUPS:
+        cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ? AND phase = ?", (hire_id, phase))
+        p_tot, p_comp = cursor.fetchone()
+        p_comp = p_comp if p_comp else 0
+        p_pct = int((p_comp / p_tot) * 100) if p_tot > 0 else 0
+        phase_metrics[phase.split(":")[0]] = p_pct
+        
+    conn.close()
+    return overall_pct, phase_metrics, total_tasks, completed_tasks
+
+# ==========================================
+# STREAMLIT UI CONFIGURATION & NAVIGATION
+# ==========================================
+st.set_page_config(page_title="YCH_HR - Onboarding Platform", layout="wide")
+
+st.sidebar.title("🏢 YCH_HR Workspace")
+st.sidebar.caption("Logistics Roster Management Platform")
+st.sidebar.markdown("---")
+
+menu = st.sidebar.radio(
+    "WORKSPACE MENU", 
+    ["📊 New Hires Dashboard", "🗃️ Archived Roster", "📋 Task Checklist View", "➕ Add New Employee", "📤 Export Reports", "🚨 System Administration"]
+)
+
+# --- VIEW 1: ACTIVE DASHBOARD WITH KPI CARD INTEGRATIONS ---
 if menu == "📊 New Hires Dashboard":
-    st.title("Active New Hires Dashboard")
-    st.caption("Monitor active onboarding cases split by phase groups.")
+    st.title("Active Onboarding Dashboard")
+    st.caption("High-level control room to track active candidates across all 5 operational milestones.")
     st.markdown("---")
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Only pull Active profiles
-    cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Active'")
-    hires = cursor.fetchall()
     
-    if not hires:
-        st.info("No active onboarding profiles found.")
+    # Compute system stats for top structural KPI visualizations
+    cursor.execute("SELECT COUNT(*) FROM new_hires WHERE status = 'Active'")
+    active_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM new_hires WHERE status = 'Archived'")
+    archived_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT id FROM new_hires WHERE status = 'Active'")
+    active_ids = cursor.fetchall()
+    
+    total_avg_pct = 0
+    pending_count = 0
+    active_hires_list = []
+    
+    for row in active_ids:
+        h_id = row[0]
+        overall, phase_breakdown, _, _ = calculate_completion_metrics(h_id)
+        total_avg_pct += overall
+        if overall < 100:
+            pending_count += 1
+            
+        cursor.execute("SELECT employee_id, mobile_number, name, role, department, manager, start_date, gender FROM new_hires WHERE id = ?", (h_id,))
+        w_info = cursor.fetchone()
+        active_hires_list.append((h_id, w_info, overall, phase_breakdown))
+        
+    avg_completion = int(total_avg_pct / active_count) if active_count > 0 else 0
+    
+    # Render Master System KPI Cards
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1.metric("Active Employees", active_count)
+    kpi2.metric("Archived Employees", archived_count)
+    kpi3.metric("Average Completion Rate", f"{avg_completion}%")
+    kpi4.metric("Pending Employees", pending_count)
+    st.markdown("---")
+    
+    if not active_hires_list:
+        st.info("No active onboarding records found. Navigate to '➕ Add New Employee' to begin.")
     else:
-        cols = st.columns(3)
-        for idx, (h_id, emp_id, name, role, dept, manager, start_date, gender) in enumerate(hires):
+        grid = st.columns(3)
+        for idx, (h_id, details, overall_pct, phase_data) in enumerate(active_hires_list):
+            emp_id, mobile, name, role, dept, manager, start_date, gender = details
             gender_icon = "👨" if gender == "Male" else "👩"
             
-            with cols[idx % 3]:
+            with grid[idx % 3]:
                 with st.container(border=True):
                     st.subheader(f"{gender_icon} {name}")
-                    st.markdown(f"🆔 **Employee ID:** `{emp_id}`")
+                    st.markdown(f"🆔 **Employee ID:** `{emp_id}` | 📱 **Mobile:** `{mobile}`")
                     st.markdown(f"🏢 **Department:** `{dept}`")
-                    st.markdown(f"💼 **Position:** {role}")
-                    st.write(f"**Reporting To:** {manager}")
-                    st.write(f"**Expected Start:** {start_date}")
+                    st.markdown(f"💼 **Position:** `{role}` | 👤 **Manager:** `{manager}`")
+                    st.write(f"**Deployment Date:** {start_date}")
                     st.markdown("---")
                     
-                    # WhatsApp Alert Button
-                    raw_msg = generate_whatsapp_message(emp_id, name, gender, dept, role, manager, start_date)
-                    encoded_msg = urllib.parse.quote(raw_msg)
-                    GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
-                    card_whatsapp_url = f"https://api.whatsapp.com/send?phone=&text={encoded_msg}&context={GROUP_TOKEN}"
+                    # Core Progress Metrics
+                    st.write(f"**Overall Progress Status:** `{overall_pct}%`")
+                    st.progress(overall_pct / 100)
+                    st.markdown("<br>", unsafe_allow_html=True)
                     
-                    st.markdown(
-                        f'<a href="{card_whatsapp_url}" target="_blank" style="text-decoration:none;">'
-                        f'<button style="background-color:#25D366; color:white; border:none; padding:6px 12px; '
-                        f'border-radius:4px; font-weight:bold; font-size:13px; cursor:pointer; width:100%; margin-bottom:12px;">'
-                        f'💬 Broadcast Alert to WhatsApp Group'
-                        f'</button></a>',
-                        unsafe_allow_html=True
-                    )
+                    # DUAL NOTIFICATION ROUTER BUTTONS
+                    btn_col1, btn_col2 = st.columns(2)
                     
-                    # Calculate overall completion for archiving trigger
-                    cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ?", (h_id,))
-                    t_tot, t_comp = cursor.fetchone()
-                    t_comp = t_comp if t_comp else 0
-                    overall_pct = int((t_comp / t_tot) * 100) if t_tot > 0 else 0
+                    with btn_col1:
+                        # 1. WhatsApp Channel Broadcast Alert
+                        raw_channel_msg = generate_whatsapp_message(emp_id, name, dept, role, manager, start_date)
+                        encoded_channel = urllib.parse.quote(raw_channel_msg)
+                        GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
+                        channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}&context={GROUP_TOKEN}"
+                        st.markdown(f'<a href="{channel_url}" target="_blank"><button style="background-color:#0078D4; color:white; border:none; padding:8px 12px; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer; width:100%;">📢 Channel Broadcast</button></a>', unsafe_allow_html=True)
                     
-                    # If employee hits 100%, show a success banner and an Archive button
+                    with btn_col2:
+                        # 2. Individual Employee Progress Reminder update link
+                        _, _, tot_t, comp_t = calculate_completion_metrics(h_id)
+                        raw_progress_msg = (
+                            f"📊 *YCH Onboarding Progress Update*\n\n"
+                            f"• *Employee ID:* {emp_id}\n"
+                            f"• *Name:* {name}\n\n"
+                            f"📈 *Overall Completion:* {overall_pct}%\n"
+                            f"• Phase 1: {phase_data['Phase 1']}%\n"
+                            f"• Phase 2: {phase_data['Phase 2']}%\n"
+                            f"• Phase 3: {phase_data['Phase 3']}%\n"
+                            f"• Phase 4: {phase_data['Phase 4']}%\n"
+                            f"• Phase 5: {phase_data['Phase 5']}%\n\n"
+                            f"Please continue completing the remaining onboarding requirements."
+                        )
+                        clean_phone = re.sub(r'\D', '', mobile)
+                        encoded_progress = urllib.parse.quote(raw_progress_msg)
+                        employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
+                        st.markdown(f'<a href="{employee_sms_url}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:8px 12px; border-radius:4px; font-weight:bold; font-size:12px; cursor:pointer; width:100%;">📲 Send Progress Update</button></a>', unsafe_allow_html=True)
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
                     if overall_pct == 100:
                         st.success("🎉 All Checklists Complete!")
-                        if st.button(f"🗃️ Archive {name.split()[0]}", key=f"arch_{h_id}"):
+                        if st.button(f"🗃️ Archive {name.split()[0]}", key=f"arch_btn_{h_id}", use_container_width=True):
                             cursor.execute("UPDATE new_hires SET status = 'Archived' WHERE id = ?", (h_id,))
                             conn.commit()
                             st.rerun()
-                        st.markdown("---")
-                    
-                    for current_phase in PHASE_GROUPS:
-                        cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ? AND phase = ?", (h_id, current_phase))
-                        total, completed = cursor.fetchone()
-                        completed = completed if completed else 0
-                        progress = int((completed / total) * 100) if total > 0 else 0
-                        short_phase_name = current_phase.split(":")[0] 
+                        st.markdown("<br>", unsafe_allow_html=True)
                         
-                        st.caption(f"**{short_phase_name} Progress:** {progress}%")
-                        st.progress(progress / 100)
+                    # Individual Phase breakdown progress outputs
+                    for phase in PHASE_GROUPS:
+                        p_short = phase.split(":")[0]
+                        p_rate = phase_data[p_short]
+                        st.caption(f"**{p_short}:** {p_rate}%")
+                        st.progress(p_rate / 100)
     conn.close()
 
-# --- NEW VIEW 2: ARCHIVED ROSTER ---
+# --- VIEW 2: ARCHIVED ROSTER LISTINGS ---
 elif menu == "🗃️ Archived Roster":
-    st.title("🗃️ Archived Employee Records")
-    st.caption("A read-only repository of successfully completed onboarding histories.")
+    st.title("🗃️ Archived Onboarding Records")
+    st.caption("Historically compiled read-only database logs of verified operational assets.")
     st.markdown("---")
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Pull only Archived profiles
-    cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Archived'")
+    cursor.execute("SELECT id, employee_id, mobile_number, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Archived'")
     archived_hires = cursor.fetchall()
     
     if not archived_hires:
         st.info("No archived records found.")
     else:
         cols = st.columns(3)
-        for idx, (h_id, emp_id, name, role, dept, manager, start_date, gender) in enumerate(archived_hires):
+        for idx, (h_id, emp_id, mobile, name, role, dept, manager, start_date, gender) in enumerate(archived_hires):
             gender_icon = "👨" if gender == "Male" else "👩"
-            
             with cols[idx % 3]:
                 with st.container(border=True):
                     st.subheader(f"{gender_icon} {name} (Archived)")
-                    st.markdown(f"🆔 **Employee ID:** `{emp_id}`")
+                    st.markdown(f"🆔 **Employee ID:** `{emp_id}` | 📱 **Mobile:** `{mobile}`")
                     st.markdown(f"🏢 **Department:** `{dept}`")
-                    st.markdown(f"💼 **Position:** {role}")
+                    st.markdown(f"💼 **Position:** `{role}`")
                     st.write(f"**Reporting To:** {manager}")
-                    st.write(f"**Completed Roster Track:** {start_date}")
                     st.markdown("---")
                     st.success("💯 100% Onboarding Verification Complete")
                     
-                    # Quick option to un-archive back to active dashboard if needed
-                    if st.button("⏪ Restore to Active", key=f"rest_{h_id}"):
+                    if st.button("⏪ Restore to Active Dashboard", key=f"restore_btn_{h_id}", use_container_width=True):
                         cursor.execute("UPDATE new_hires SET status = 'Active' WHERE id = ?", (h_id,))
                         conn.commit()
                         st.rerun()
     conn.close()
 
-# --- VIEW 3: OPERATIONAL CHECKLIST LAYER ---
+# --- VIEW 3: CHECKLIST RENDERING INTERFACE LAYER ---
 elif menu == "📋 Task Checklist View":
-    st.title("Onboarding Assistant — Checklist Layer")
+    st.title("Operational Verification — Checklist Layer")
+    st.caption("Manage granular structural checklist processing rows mapped by targeted phase constraints.")
     st.markdown("---")
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Checklists can only be managed for Active hires
     cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
     employee_options = cursor.fetchall()
     
     if not employee_options:
-        st.info("No active employees registered yet.")
+        st.info("No active employee tracks currently available.")
     else:
         employee_dict = {f"[{emp_id}] {name}": h_id for h_id, emp_id, name in employee_options}
         selected_profile = st.selectbox("Select an employee to manage:", list(employee_dict.keys()))
@@ -243,10 +327,14 @@ elif menu == "📋 Task Checklist View":
                 tasks = cursor.fetchall()
                 
                 if not tasks:
-                    st.caption("_No specific tasks added._")
+                    st.caption("_No specific tasks added to this phase module._")
                 else:
                     for t_id, task_name, assigned_to, is_completed in tasks:
-                        checked = st.checkbox(label=f"**{task_name}** (Assigned to: `{assigned_to}`)", value=bool(is_completed), key=f"task_{t_id}")
+                        checked = st.checkbox(
+                            label=f"**{task_name}** (Assigned to: `{assigned_to}`)", 
+                            value=bool(is_completed),
+                            key=f"tsk_chk_{t_id}"
+                        )
                         new_status = 1 if checked else 0
                         if new_status != is_completed:
                             cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (new_status, t_id))
@@ -256,22 +344,22 @@ elif menu == "📋 Task Checklist View":
                         
         with right_col:
             st.subheader("➕ Create Custom Task")
-            with st.form("new_task_form", clear_on_submit=True):
-                new_task_name = st.text_input("Task Title:")
-                new_phase = st.selectbox("Assign to Group Phase:", PHASE_GROUPS)
-                new_owner = st.selectbox("Assign Owner Role:", AVAILABLE_TEAMS)
+            with st.form("custom_task_form", clear_on_submit=True):
+                new_task_name = st.text_input("Task Title Data:", placeholder="e.g. Process Site Badge Clearance")
+                new_phase = st.selectbox("Assign to Roadmap Phase Location:", PHASE_GROUPS)
+                new_owner = st.selectbox("Assign Owner Team Role:", AVAILABLE_TEAMS)
                 
-                add_task_btn = st.form_submit_button("Add Task to Checklist")
-                if add_task_btn and new_task_name != "":
+                if st.form_submit_button("Add Task to Active Checklist") and new_task_name != "":
                     cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department, is_completed) VALUES (?, ?, ?, ?, ?, 0)", (selected_id, new_task_name, new_phase, new_owner, new_owner))
                     conn.commit()
-                    st.success("Added custom task!")
+                    st.success("Custom task appended cleanly!")
                     st.rerun()
     conn.close()
 
-# --- VIEW 4: EMPLOYEE REGISTRATION FORM ---
+# --- VIEW 4: MASTER REGISTRATION LAYER WITH REGEX & CELLULAR VALIDATIONS ---
 elif menu == "➕ Add New Employee":
-    st.title("YCH Employee Profiles Management")
+    st.title("Employee Onboarding Profiles Engine")
+    st.caption("Deploy standard operational tracks down to background ledger layers safely.")
     st.markdown("---")
     
     conn = get_db_connection()
@@ -281,105 +369,201 @@ elif menu == "➕ Add New Employee":
     manager_options = [row[0] for row in manager_query]
     conn.close()
     
-    st.subheader("➕ Register New Employee")
-    with st.form("registration_form", clear_on_submit=False):
-        input_emp_id = st.text_input("Employee ID Number:", placeholder="e.g. SG0001").strip()
+    st.subheader("➕ Register New Candidate")
+    with st.form("registration_form_master", clear_on_submit=False):
+        input_emp_id = st.text_input("Employee ID Number:", placeholder="Example format requirement: SG0001").strip()
+        input_mobile = st.text_input("Mobile Number (Minimum 8 digits, numeric only):", placeholder="e.g. 81039323").strip()
         input_name = st.text_input("Full Name:", placeholder="e.g. JAVIER BENEDICT CUEVILLAS")
-        input_gender = st.selectbox("Gender:", ["Male", "Female"])
-        input_dept = st.selectbox("Allocated Department:", YCH_DEPARTMENTS)
-        input_role = st.text_input("Job Title / Position:", placeholder="e.g. Forklift Operator")
+        input_gender = st.selectbox("Gender Classification:", ["Male", "Female"])
+        input_dept = st.selectbox("Allocated Corporate Account Department Hub:", YCH_DEPARTMENTS)
+        input_role = st.text_input("Job Title / Position Role:", placeholder="e.g. Reach Truck Operator")
+        input_manager = st.selectbox("Reporting Manager / PIC:", manager_options) if manager_options else "No Manager Assigned"
+        input_date_picker = st.date_input("Start Training Deployment Date:")
         
-        if not manager_options:
-            st.warning("⚠️ No managers found in masterlist! Please add a manager in System Administration first.")
-            input_manager = "No Manager Assigned"
-        else:
-            input_manager = st.selectbox("Reporting Manager / PIC:", manager_options)
-            
-        input_date_picker = st.date_input("Start Date:")
         submit_button = st.form_submit_button("Deploy Onboarding Track & Format Alert")
         
         if submit_button:
-            if input_emp_id == "" or input_name == "" or input_role == "" or input_manager == "No Manager Assigned":
-                st.error("Please fill out Employee ID, Name, Role, and select a Manager before saving.")
+            # 1. STRICT REQUIREMENT: ID Formatter Validation Regex Check 
+            id_pattern = r"^[A-Z]{2}[0-9]{4}$"
+            
+            # 2. STRICT REQUIREMENT: Mobile validation rules evaluation
+            clean_mobile_check = re.sub(r'\D', '', input_mobile)
+            
+            if not re.match(id_pattern, input_emp_id):
+                st.error("Employee ID must follow format: SG0001 (2 Capital Letters followed by exactly 4 numbers).")
+            elif input_mobile == "" or len(clean_mobile_check) < 8 or clean_mobile_check != input_mobile:
+                st.error("Mobile Number is required, must contain numbers only, and meet a minimum of 8 digits length.")
+            elif input_name == "" or input_role == "" or input_manager == "No Manager Assigned":
+                st.error("Please fill out Name, Role, and select an active Reporting Manager to build data blocks.")
             else:
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("SELECT name FROM new_hires WHERE UPPER(employee_id) = UPPER(?)", (input_emp_id,))
-                duplicate_record = cursor.fetchone()
+                duplicate = cursor.fetchone()
                 
-                if duplicate_record is not None:
-                    st.error(f"🚨 DUPLICATE ID DETECTED: The Employee ID '{input_emp_id}' is already assigned to '{duplicate_record[0]}'. Please provide a unique ID number.")
+                if duplicate is not None:
+                    st.error(f"🚨 DUPLICATE ID BLOCKED: That ID code is already registered to '{duplicate[0]}'.")
                     conn.close()
                 else:
                     saved_date_string = input_date_picker.strftime("%B %d, %Y")
                     cursor.execute(
-                        "INSERT INTO new_hires (employee_id, name, role, department, manager, start_date, gender, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')",
-                        (input_emp_id, input_name, input_role, input_dept, input_manager, saved_date_string, input_gender)
+                        "INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')",
+                        (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, saved_date_string, input_gender)
                     )
                     new_hire_id = cursor.lastrowid
                     
-                    default_roadmap_tasks = [
-                        ("Contract signing", "Group 1: Pre-boarding Checklist", "HR Team"),
-                        ("Declaration form submission", "Group 1: Pre-boarding Checklist", "HR Team"),
-                        ("Familiarization orientation briefing", "Group 1: Pre-boarding Checklist", "HR Team"),
-                        ("Accountability form completion", "Group 1: Pre-boarding Checklist", "HR Team"),
-                        ("HR Onboarding documentation processing", "Group 2: Day 1 Checklist", "HR Team"),
-                        ("Security Training and warehouse entry processing", "Group 2: Day 1 Checklist", "Security Team"),
-                        ("QAEHS Training and safety protocols review", "Group 2: Day 1 Checklist", "QA&EHS Team"),
-                        ("Has the specific standard operating procedure (SOP) of the assigned department/account been explained thoroughly?", "Group 3: Monthly Engagement Checklist", "HR Team"),
-                        ("Has the employee been properly introduced to the operations team and workspace buddy?", "Group 3: Monthly Engagement Checklist", "HR Team"),
-                        ("Is the employee comfortable operating specialized equipment/tools assigned to their account?", "Group 3: Monthly Engagement Checklist", "QA&EHS Team"),
-                        ("Does the employee have all necessary Personal Protective Equipment (PPE) required for their daily account tasks?", "Group 3: Monthly Engagement Checklist", "QA&EHS Team"),
-                        ("Follow-up session: Review feedback regarding their first 30 days and answer any operations questions.", "Group 3: Monthly Engagement Checklist", "HR Team")
+                    # SYSTEM ARCHITECTURE: Core Task injection roadmap parameters matching specs 
+                    default_tasks = [
+                        # Phase 1
+                        ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        
+                        # Phase 2
+                        ("HR Onboarding Documentation Processing", "Phase 2: Day 1 Checklist", "HR Team"),
+                        ("Security Training and Warehouse Entry Processing", "Phase 2: Day 1 Checklist", "Security Team"),
+                        ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
+                        
+                        # Phase 3 - TECHNICAL TRAINING ROSTER (CHECKLISTS ONLY, NO QUESTIONS)
+                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("System/Application Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("Forklift Training Completed (If Applicable)", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("On-the-Job Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("Technical Competency Assessment Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        
+                        # Phase 4 - PERFORMANCE ASSESSMENT (CHECKLISTS ONLY, NO QUESTIONS)
+                        ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee understands KPIs", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee can perform assigned tasks independently", "Phase 4: Performance Assessment Checklist", "QA&EHS Team"),
+                        ("Employee demonstrates productivity expectations", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee follows SOP consistently", "Phase 4: Performance Assessment Checklist", "QA&EHS Team"),
+                        ("Employee requires minimal supervision", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee has adapted to the work environment", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        
+                        # Phase 5 - ENGAGEMENT & FOLLOW-UP (CHECKLISTS ONLY, NO QUESTIONS)
+                        ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("Employee introduced to workplace buddy", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team"),
+                        ("Employee feedback session completed", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("30-Day onboarding review completed", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("Employee concerns addressed", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("Manager follow-up completed", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team")
                     ]
                     
-                    for task_name, phase, assigned_to in default_roadmap_tasks:
-                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_hire_id, task_name, phase, assigned_to, input_dept))
+                    for t_name, p_name, own in default_tasks:
+                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_hire_id, t_name, p_name, own, input_dept))
+                        
                     conn.commit()
                     conn.close()
                     
-                    automated_msg = generate_whatsapp_message(input_emp_id, input_name, input_gender, input_dept, input_role, input_manager, saved_date_string)
-                    st.session_state["last_registered_worker"] = {"name": input_name, "msg_text": automated_msg}
+                    # Generate updated plain text string format layout
+                    channel_msg = generate_whatsapp_message(input_emp_id, input_name, input_dept, input_role, input_manager, saved_date_string)
+                    st.session_state["last_registered_worker"] = {"name": input_name, "msg_text": channel_msg}
                     st.rerun()
 
     if "last_registered_worker" in st.session_state:
         w = st.session_state["last_registered_worker"]
-        encoded_message = urllib.parse.quote(w["msg_text"])
+        enc_msg = urllib.parse.quote(w["msg_text"])
         GROUP_TOKEN = "JIeWsX45KJEAWsavJUZAff"
-        fixed_whatsapp_url = f"https://api.whatsapp.com/send?phone=&text={encoded_message}&context={GROUP_TOKEN}"
+        f_url = f"https://api.whatsapp.com/send?phone=&text={enc_msg}&context={GROUP_TOKEN}"
         
         st.markdown("---")
-        st.success(f"🎉 Profile successfully saved for {w['name']}!")
-        st.markdown(f'<a href="{fixed_whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="background-color:#25D366; color:white; border:none; padding:14px 28px; border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer; width:100%; box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">🚀 Deploy Direct WhatsApp Group Notification</button></a>', unsafe_allow_html=True)
+        st.success(f"🎉 Roster file profile successfully created for {w['name']}!")
+        st.markdown(f'<a href="{f_url}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:14px 28px; border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer; width:100%; box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">🚀 Deploy Direct WhatsApp Group Notification</button></a>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Clear View & Register Next Record"):
+        if st.button("Clear Notification & Register Next Profile"):
             del st.session_state["last_registered_worker"]
             st.rerun()
 
-# --- VIEW 5: SYSTEM ADMINISTRATION ---
+# --- VIEW 5: DEDICATED EXCEL EXPORT WORKSPACE ---
+elif menu == "📤 Export Reports":
+    st.title("📤 Data Extraction & Excel Export Center")
+    st.caption("Download structured corporate telemetry logs directly into local spreadsheets using Pandas engine serialization pipelines.")
+    st.markdown("---")
+    
+    with st.container(border=True):
+        st.subheader("📊 Choose Extraction Dataset Target")
+        target_report = st.selectbox("Select Target Roster Context Scope:", ["Export Active Employees", "Export Archived Employees", "Export All Employees"])
+        st.markdown("---")
+        
+        conn = get_db_connection()
+        
+        # Mapping base logical queries
+        base_query = "SELECT id, employee_id, name, mobile_number, gender, department, role, manager, start_date, status FROM new_hires"
+        if "Active" in target_report:
+            base_query += " WHERE status = 'Active'"
+            filename = "active_employees.xlsx"
+        elif "Archived" in target_report:
+            base_query += " WHERE status = 'Archived'"
+            filename = "archived_employees.xlsx"
+        else:
+            filename = "all_employees.xlsx"
+            
+        df = pd.read_sql_query(base_query, conn)
+        
+        # Append accurate completion calculations array layers 
+        pct_array = []
+        for _, row in df.iterrows():
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*), SUM(is_completed) FROM tasks WHERE hire_id = ?", (int(row['id']),))
+            t_t, t_c = cursor.fetchone()
+            t_c = t_c if t_c else 0
+            rate_string = f"{int((t_c / t_t) * 100)}%" if t_t > 0 else "0%"
+            pct_array.append(rate_string)
+            
+        df['Overall Completion %'] = pct_array
+        df = df.drop(columns=['id']).rename(columns={
+            'employee_id': 'Employee ID', 'name': 'Full Name', 'mobile_number': 'Mobile Number',
+            'gender': 'Gender', 'department': 'Department', 'role': 'Position',
+            'manager': 'Reporting Manager', 'start_date': 'Start Date', 'status': 'Status'
+        })
+        conn.close()
+        
+        # Serialize out to byte arrays streams using default openpyxl package wrappers
+        excel_stream = io.BytesIO()
+        with pd.ExcelWriter(excel_stream, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='YCH_Roster_Audit')
+            
+        st.download_button(
+            label=f"📥 Download Compiled Excel Sheet ({filename})",
+            data=excel_stream.getvalue(),
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+# --- VIEW 6: SYSTEM MASTER ADMINISTRATION (MANAGERS & DELETIONS) ---
 elif menu == "🚨 System Administration":
     st.title("System Records & Settings Administration")
+    st.caption("Manage lookup constraints data lists, system dropdown values, and administrative purges.")
     st.markdown("---")
+    
     admin_col1, admin_col2 = st.columns([1, 1], gap="large")
     
     with admin_col1:
-        st.subheader("👤 Managers Masterlist Management")
-        with st.form("add_manager_form", clear_on_submit=True):
-            new_m_name = st.text_input("Enter New Manager Name:")
-            submit_m = st.form_submit_button("➕ Register Manager")
-            if submit_m and new_m_name != "":
+        st.subheader("👤 Managers Masterlist Settings")
+        with st.form("admin_manager_form", clear_on_submit=True):
+            new_m_name = st.text_input("Enter New Operation Coordinator Name:")
+            if st.form_submit_button("➕ Register Manager") and new_m_name != "":
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
                     cursor.execute("INSERT INTO managers (manager_name) VALUES (?)", (new_m_name.strip(),))
                     conn.commit()
-                    st.success(f"Added '{new_m_name}' successfully!")
+                    st.success(f"Added '{new_m_name}' to validation lists successfully!")
                 except sqlite3.IntegrityError:
-                    st.error("This manager is already registered.")
+                    st.error("This user object already exists inside system memory blocks.")
                 conn.close()
                 st.rerun()
                 
         st.markdown("<br>", unsafe_allow_html=True)
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, manager_name FROM managers ORDER BY manager_name ASC")
@@ -387,34 +571,39 @@ elif menu == "🚨 System Administration":
         conn.close()
         
         if m_list:
-            with st.form("remove_manager_form", clear_on_submit=True):
+            with st.form("remove_manager_form_admin", clear_on_submit=True):
                 m_dict = {m_name: m_id for m_id, m_name in m_list}
-                target_m = st.selectbox("Select manager to remove:", list(m_dict.keys()))
+                target_m = st.selectbox("Select entries profile to clear out:", list(m_dict.keys()))
                 if st.form_submit_button("❌ Remove Selected Manager", type="primary"):
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute("DELETE FROM managers WHERE id = ?", (m_dict[target_m],))
                     conn.commit()
                     conn.close()
+                    st.success("Target entry cleared out of options successfully.")
                     st.rerun()
 
     with admin_col2:
-        st.subheader("🚨 Danger Zone: Remove Employee Profile")
+        st.subheader("🚨 Danger Zone: Purge Record Entry")
+        st.caption("Permanently clear out an entry structure profile, wiping all historic checklist rows entirely.")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, employee_id, name FROM new_hires")
         delete_options = cursor.fetchall()
         
         if not delete_options:
-            st.info("No records available to delete.")
+            st.info("No employee record profiles detected inside background tables.")
         else:
             delete_dict = {f"[{emp_id}] {name}": h_id for h_id, emp_id, name in delete_options}
-            target_profile = st.selectbox("Select profile to destroy permanently:", list(delete_dict.keys()))
+            target_profile = st.selectbox("Select target card to clear out completely:", list(delete_dict.keys()))
             target_id = delete_dict[target_profile]
             confirm_check = st.checkbox("I confirm that I want to permanently delete this worker.")
             if st.button("Permanently Erase Profile", type="primary") and confirm_check:
                 cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (target_id,))
                 cursor.execute("DELETE FROM new_hires WHERE id = ?", (target_id,))
                 conn.commit()
+                st.success("Record elements completely cleared from all structural system layers.")
                 st.rerun()
         conn.close()
