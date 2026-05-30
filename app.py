@@ -272,13 +272,6 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
-    st.sidebar.markdown(f"""
-    <div style="background-color: #FFFFFF; padding: 8px; border-radius: 6px; text-align: center; margin-bottom: 10px;">
-        <span style="color: #002060; font-weight: bold; font-size: 14px;">
-            User Code: {st.session_state['username']}
-        </span>
-    </div>
-""", unsafe_allow_html=True)
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
