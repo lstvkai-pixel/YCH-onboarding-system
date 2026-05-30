@@ -424,7 +424,7 @@ if menu == "🏢 Corporate Experience Landing":
     with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
     with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
-    tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])
+    tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "📢 Corporate News Feed"])
     
     with tab_dash:
         conn = get_db_connection()
@@ -538,40 +538,6 @@ if menu == "🏢 Corporate Experience Landing":
                             st.markdown(f"<div style='text-align:center; font-size:12px; background:#EEF2F6; padding:5px; border-radius:4px;'>{bg_lbl} <b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
                     st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
                     
-    with tab_board:
-        st.subheader("📊 Monthly Training Hours Leaderboard")
-        current_year_month = datetime.now().strftime("%Y-%m")
-        selected_month_str = st.text_input("📆 Filter Training Month Year (YYYY-MM):", value=current_year_month)
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT h.name, h.role, SUM(l.classroom_hours + l.ojt_hours + l.safety_hours + l.technical_hours) as monthly_hours 
-            FROM training_logs l 
-            JOIN new_hires h ON l.hire_id = h.id 
-            WHERE l.log_date LIKE ? 
-            GROUP BY h.id
-        """, (f"{selected_month_str}%",))
-        records = cursor.fetchall()
-        conn.close()
-        
-        board_data = [{"Name": r[0], "Role": r[1], f"Training Hours ({selected_month_str})": r[2]} for r in records]
-            
-        if board_data:
-            df_board = pd.DataFrame(board_data).sort_values(by=[f"Training Hours ({selected_month_str})"], ascending=False).head(10)
-            num_rows = len(df_board)
-            medals = []
-            for i in range(num_rows):
-                if i == 0: medals.append('🥇 Gold')
-                elif i == 1: medals.append('🥈 Silver')
-                elif i == 2: medals.append('🥉 Bronze')
-                else: medals.append('⭐ Performer')
-                
-            df_board.insert(0, 'Rank Medal', medals)
-            st.dataframe(df_board, use_container_width=True, hide_index=True)
-        else:
-            st.info(f"No training hours logged for the month: {selected_month_str}.")
-            
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         
