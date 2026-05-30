@@ -52,7 +52,7 @@ def init_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS feedback_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, category TEXT, content TEXT, ticket_status TEXT DEFAULT 'Open', date_logged TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
-    # ✅ SAFE MIGRATION PATCH: Ensure announcements schema is verified dynamically before structural commands run
+    # Ensure announcements schema is verified dynamically
     cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (
         id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, 
         content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
@@ -184,7 +184,8 @@ for state_key, default_value in [
     ("username", None),
     ("user_role", None),
     ("change_pwd", False),
-    ("p_check_state", False)
+    ("p_check_state", False),
+    ("ann_posted_success", False)  # Track announcement notifications cleanly
 ]:
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
@@ -583,7 +584,7 @@ elif menu == "➕ Add New Employee":
                     # 2. Provision Account Access Ledger
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    # 3. Inject structural roadmap default tasks list mapping loop
+                    # 3. Inject default task matrix framework mapping pipeline loop
                     default_tasks = [
                         ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                         ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -612,7 +613,6 @@ elif menu == "➕ Add New Employee":
                     st.subheader("📲 Send Credentials")
                     wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
                     wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
-                    
                     st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
                     
                 except sqlite3.IntegrityError:
@@ -819,6 +819,11 @@ elif menu == "📤 Export Reports":
 elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
     
+    # ✅ NOTIFICATION FEEDBACK TOAST CHECK
+    if st.session_state.get("ann_posted_success", False):
+        st.success("🎉 Success: Announcement notice published live to the workspace bulletin successfully!")
+        st.session_state["ann_posted_success"] = False  # Reset flag instantly
+    
     if "p_check_state" not in st.session_state:
         st.session_state["p_check_state"] = False
 
@@ -864,34 +869,40 @@ elif menu == "🚨 System Administration":
         st.markdown("<br>", unsafe_allow_html=True)
         
         st.subheader("📢 Post Corporate Announcement Bulletin")
-        with st.form("ann_form", clear_on_submit=False):
-            a_title = st.text_input("Announcement Title Heading:")
-            a_cat = st.selectbox("Target Classification Group:", ["HR Memorandum", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
-            a_body = st.text_area("Announcement Description Body Content:")
-            a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
+        
+        # ✅ FIXED: Changed clear_on_submit to True so form fields reset blank automatically!
+        with st.form("ann_form", clear_on_submit=True):
+            # Added precise key bindings to session state mapping variables
+            a_title = st.text_input("Announcement Title Heading:", key="txt_title")
+            a_cat = st.selectbox("Target Classification Group:", ["HR Memorandum", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
+            a_body = st.text_area("Announcement Description Body Content:", key="txt_body")
+            a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"], key="file_attach")
             
             st.markdown("**📅 Schedule Options:**")
-            has_expiry = st.checkbox("Set an expiration date for this post?")
-            expiry_date_val = ""
-            if has_expiry:
-                expiry_date_picker = st.date_input("Optional Expiration Date (Hides after this day):", min_value=datetime.now())
-                expiry_date_val = expiry_date_picker.strftime("%Y-%m-%d")
+            has_expiry = st.checkbox("Set an expiration date for this post?", key="chk_expiry")
+            expiry_date_picker = st.date_input("Optional Expiration Date (Hides after this day):", min_value=datetime.now(), key="dt_expiry")
             
-            if st.form_submit_button("📢 Publish Notice to Workspace") and a_title != "":
-                saved_ann_file = None
-                if a_file is not None:
-                    os.makedirs("attachments", exist_ok=True)
-                    saved_ann_file = f"attachments/{int(datetime.now().timestamp())}_{a_file.name}"
-                    with open(saved_ann_file, "wb") as f_out: f_out.write(a_file.getbuffer())
-                
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path, expiry_date) VALUES (?, ?, ?, ?, ?, ?)", 
-                               (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file, expiry_date_val))
-                conn.commit()
-                conn.close()
-                st.success("📢 Bulletin notice published live successfully!")
-                st.rerun()
+            if st.form_submit_button("📢 Publish Notice to Workspace"):
+                if a_title.strip() == "":
+                    st.error("Validation Failed: Announcement requires a Title Heading context.")
+                else:
+                    expiry_date_val = expiry_date_picker.strftime("%Y-%m-%d") if has_expiry else ""
+                    saved_ann_file = None
+                    if a_file is not None:
+                        os.makedirs("attachments", exist_ok=True)
+                        saved_ann_file = f"attachments/{int(datetime.now().timestamp())}_{a_file.name}"
+                        with open(saved_ann_file, "wb") as f_out: f_out.write(a_file.getbuffer())
+                    
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path, expiry_date) VALUES (?, ?, ?, ?, ?, ?)", 
+                                   (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file, expiry_date_val))
+                    conn.commit()
+                    conn.close()
+                    
+                    # ✅ TRIGGER STATUS FEEDBACK FLIP
+                    st.session_state["ann_posted_success"] = True
+                    st.rerun()
 
         st.markdown("---")
         st.subheader("⚙️ Manage Published Bulletins")
