@@ -274,15 +274,21 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown("---")
     st.markdown("""
     <style>
-        /* Sidebar User Profile Styling */
+        /* Sidebar container styling */
         .user-code-container {
-            background-color: #FFFFFF;
-            padding: 10px;
-            border-radius: 8px;
+            background-color: #FFFFFF !important; /* White background */
+            padding: 8px 12px !important;
+            border-radius: 6px !important;
+            margin-bottom: 10px !important;
+            text-align: center !important;
+            /* Force text color to dark blue */
+            color: #002060 !important; 
+            font-weight: bold !important;
+        }
+        
+        /* Ensure the span/text inside the div also adopts the dark color */
+        .user-code-container span {
             color: #002060 !important;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-align: center;
         }
     </style>
 """, unsafe_allow_html=True)
