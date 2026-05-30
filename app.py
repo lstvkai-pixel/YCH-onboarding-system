@@ -866,7 +866,7 @@ elif menu == "🚨 System Administration":
         st.subheader("📢 Post Corporate Announcement Bulletin")
         with st.form("ann_form", clear_on_submit=False):
             a_title = st.text_input("Announcement Title Heading:")
-            a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
+            a_cat = st.selectbox("Target Classification Group:", [HR Memorandum", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
             a_body = st.text_area("Announcement Description Body Content:")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
             
