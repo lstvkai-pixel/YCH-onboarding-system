@@ -94,14 +94,6 @@ def init_database():
         )
     ''')
     
-    # System Migration Mappings
-    cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
-    cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
-    cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
-    
-    cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
-    cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
-    
     # 5. LMS Modules Storage Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lms_materials (
@@ -138,16 +130,21 @@ def init_database():
         )
     ''')
     
-    # 8. Corporate Announcement Bulletin Table
+    # 8. Corporate Announcement Bulletin Table (Updated with attachment trace support)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             category TEXT NOT NULL,
             content TEXT NOT NULL,
-            date_posted TEXT NOT NULL
+            date_posted TEXT NOT NULL,
+            file_path TEXT DEFAULT NULL
         )
     ''')
+    try:
+        cursor.execute("ALTER TABLE announcements ADD COLUMN file_path TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass
     
     # 9. Managers Reference List Table
     cursor.execute('''
@@ -156,6 +153,14 @@ def init_database():
             manager_name TEXT NOT NULL UNIQUE
         )
     ''')
+    
+    # System Migration Mappings
+    cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
+    cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
+    cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
+    
+    cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
+    cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
     
     conn.commit()
     conn.close()
@@ -465,16 +470,22 @@ if menu == "🏢 Corporate Experience Landing":
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT title, category, content, date_posted FROM announcements ORDER BY id DESC")
+        # ✅ UPGRADE: Pull file attachments if available from database layer
+        cursor.execute("SELECT title, category, content, date_posted, file_path FROM announcements ORDER BY id DESC")
         notices = cursor.fetchall()
         conn.close()
         
         if not notices:
             st.caption("_No corporate announcements posted in the ledger currently._")
         else:
-            for title, cat, content, dt in notices:
+            for title, cat, content, dt, f_path in notices:
                 st.markdown(f"##### 🔔 {title} `[{cat}]` — _Posted on {dt}_")
                 st.write(content)
+                
+                # ✅ UPGRADE: Render direct document attachment vault links in the feed tab layer
+                if f_path and os.path.exists(f_path):
+                    with open(f_path, "rb") as b_stream:
+                        st.download_button(label=f"📎 Download Attached Memo Document File ({os.path.basename(f_path)})", data=b_stream.read(), file_name=os.path.basename(f_path), key=f"dl_ann_{dt}_{title}")
                 st.markdown("---")
 
 # --- WORKSPACE 2: EMPLOYEE REGISTRATION ---
@@ -541,7 +552,7 @@ elif menu == "➕ Add New Employee":
                 st.success("Successfully generated profile tracking layers.")
                 st.rerun()
 
-# --- WORKSPACE 3: CHECKLIST VIEW (WITH DOCUMENT VAULT LINK INTEGRATION) ---
+# --- WORKSPACE 3: CHECKLIST VIEW ---
 elif menu == "📋 Task Checklist View":
     st.title("📋 Phased Checklist Processing & Verification Layer")
     st.markdown("---")
@@ -589,7 +600,6 @@ elif menu == "📋 Task Checklist View":
             conn.close()
             
         with right_pane:
-            # ✅ NEW: Signed Documents Vault Upload Module Section
             st.subheader("📂 Signed Documents Vault")
             with st.form("vault_upload_form", clear_on_submit=True):
                 doc_title_input = st.text_input("Document Name / Description:", placeholder="e.g. Signed Employment Contract")
@@ -609,7 +619,6 @@ elif menu == "📋 Task Checklist View":
                     st.success("Document uploaded securely to employee records vault!")
                     st.rerun()
             
-            # Display uploaded files for selected employee with clean download targets
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, doc_name, file_path FROM signed_documents WHERE hire_id = ?", (sel_id,))
@@ -648,7 +657,7 @@ elif menu == "📋 Task Checklist View":
             st.markdown("<hr>", unsafe_allow_html=True)
             
             st.subheader("⏱️ Log Training Hours Audit")
-            with st.form("hours_form"):
+            with st.form("hours_form", clear_on_submit=True):
                 log_date_picker = st.date_input("Training Session Date Context:")
                 add_c = st.number_input("Add Classroom Hours:", min_value=0, step=1)
                 add_o = st.number_input("Add On-the-Job (OJT) Hours:", min_value=0, step=1)
@@ -660,8 +669,7 @@ elif menu == "📋 Task Checklist View":
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (sel_id, log_date_picker.strftime("%Y-%m-%d"), add_c, add_o, add_s, add_t))
                     conn.commit()
-                    st.success("Operational learning hours logged with calendar audit timestamps.")
-                    st.rerun()
+                    st.success(f"🎉 Success: Logged {add_c+add_o+add_s+add_t} total training hours for this date context!")
             conn.close()
 
 elif menu == "📚 Learning Center":
@@ -799,6 +807,7 @@ elif menu == "📤 Export Reports":
             df_out.to_excel(writer, index=False, sheet_name='YCH_Roster_Audit')
         st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
+# --- WORKSPACE 9: SYSTEM ADMINISTRATION CONTROL PANEL ---
 elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
     adm_c1, adm_c2 = st.columns([1, 1], gap="large")
@@ -817,18 +826,32 @@ elif menu == "🚨 System Administration":
                 conn.close()
                 st.rerun()
         st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Reference layout: image_686fa7.png
         st.subheader("📢 Post Corporate Announcement Bulletin")
-        with st.form("ann_form", clear_on_submit=True):
+        with st.form("ann_form", clear_on_submit=False):
             a_title = st.text_input("Announcement Title Heading:")
             a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
             a_body = st.text_area("Announcement Description Body Content:")
+            
+            # ✅ NEW: Document/Image uploader added inside the bulletin creator form block
+            a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
+            
             if st.form_submit_button("📢 Publish Notice to Workspace") and a_title != "":
+                saved_ann_file = None
+                if a_file is not None:
+                    os.makedirs("attachments", exist_ok=True)
+                    saved_ann_file = f"attachments/{int(datetime.now().timestamp())}_{a_file.name}"
+                    with open(saved_ann_file, "wb") as f_out:
+                        f_out.write(a_file.getbuffer())
+                
                 conn = get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO announcements (title, category, content, date_posted) VALUES (?, ?, ?, ?)", (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y")))
+                cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path) VALUES (?, ?, ?, ?, ?)", 
+                               (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file))
                 conn.commit()
                 conn.close()
-                st.success("Bulletin published live across the landing page news feed channels!")
+                st.success("🎉 Bulletin notice with attached file published live successfully!")
                 st.rerun()
     with adm_c2:
         st.subheader("🚨 Danger Zone: Purge Roster Accounts")
