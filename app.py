@@ -210,7 +210,7 @@ for state_key, default_value in [
 
 if not st.session_state.get("authenticated", False):
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
-    st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding, LMS & Compliance Validation Portal</h5>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding Portal</h5>", unsafe_allow_html=True)
     
     with st.container(border=True):
         st.subheader("🔑 Identity Secure Access Sign-In")
