@@ -824,52 +824,112 @@ elif menu == "📤 Export Reports":
         st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
 # --- WORKSPACE 9: SYSTEM ADMINISTRATION CONTROL PANEL ---
-# --- WORKSPACE 9: SYSTEM ADMINISTRATION CONTROL PANEL ---
 elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
-    
-    # Initialize the delete checkbox state if it doesn't exist
-    if "p_check" not in st.session_state:
-        st.session_state.p_check = False
-
     adm_c1, adm_c2 = st.columns([1, 1], gap="large")
     with adm_c1:
-        # ... (Keep your Managers and Announcements forms here as they are) ...
+        # TEMPORARY DEBUGGING TOOL
+        st.subheader("🔍 Debug: View All Accounts")
+        if st.button("List All User Accounts"):
+            conn = get_db_connection()
+            df_users = pd.read_sql_query("SELECT employee_id, role_type FROM user_accounts", conn)
+            st.dataframe(df_users)
+            conn.close()
+        st.markdown("---")
+        st.subheader("➕ Create New Admin Account")
+        with st.form("new_admin_form", clear_on_submit=True):
+            new_admin_id = st.text_input("New Admin Username/ID:").strip().upper()
+            new_admin_pass = st.text_input("New Admin Password:", type="password")
+            if st.form_submit_button("Create Admin"):
+                if new_admin_id and new_admin_pass:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, ?, 'Employer', 0)", 
+                                       (new_admin_id, new_admin_pass))
+                        conn.commit()
+                        st.success(f"Admin '{new_admin_id}' created successfully!")
+                    except sqlite3.IntegrityError:
+                        st.error("Admin ID already exists.")
+                    conn.close()
+                    st.rerun()
         st.subheader("👤 Managers Masterlist Validation Options")
-        # ... [Your existing manager form code] ...
-
+        with st.form("admin_m_form_v2", clear_on_submit=True):
+            new_manager = st.text_input("Register New Operation Manager / PIC:")
+            if st.form_submit_button("➕ Save Manager to System") and new_manager != "":
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("INSERT INTO managers (manager_name) VALUES (?)", (new_manager.strip(),))
+                    conn.commit()
+                    st.success("Operational authority logged successfully.")
+                except sqlite3.IntegrityError: st.error("Entry already exists.")
+                conn.close()
+                st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        
         st.subheader("📢 Post Corporate Announcement Bulletin")
-        # ... [Your existing announcement form code] ...
-
+        with st.form("ann_form", clear_on_submit=False):
+            a_title = st.text_input("Announcement Title Heading:")
+            a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
+            a_body = st.text_area("Announcement Description Body Content:")
+            a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
+            
+            if st.form_submit_button("📢 Publish Notice to Workspace") and a_title != "":
+                saved_ann_file = None
+                if a_file is not None:
+                    os.makedirs("attachments", exist_ok=True)
+                    saved_ann_file = f"attachments/{int(datetime.now().timestamp())}_{a_file.name}"
+                    with open(saved_ann_file, "wb") as f_out: f_out.write(a_file.getbuffer())
+                
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path) VALUES (?, ?, ?, ?, ?)", 
+                               (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file))
+                conn.commit()
+                conn.close()
+                st.success("📢 Bulletin notice published live successfully!")
+                st.rerun()
     with adm_c2:
+        st.subheader("🔑 Employee Password Override Control Panel")
+        with st.form("password_reset_form", clear_on_submit=True):
+            target_reset_id = st.text_input("Target Employee ID to Override (e.g., SG0002):").strip().upper()
+            new_target_password = st.text_input("Provide New Account Access Password:", type="password")
+            
+            if st.form_submit_button("🔒 Apply Password Override"):
+                if target_reset_id != "" and new_target_password != "":
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM user_accounts WHERE UPPER(employee_id) = ? AND role_type = 'Employee'", (target_reset_id,))
+                    valid_emp_account = cursor.fetchone()
+                    
+                    if valid_emp_account:
+                        cursor.execute("UPDATE user_accounts SET password = ? WHERE UPPER(employee_id) = ?", (new_target_password, target_reset_id))
+                        conn.commit()
+                        st.success(f"Successfully overrode access security key for employee: `{target_reset_id}`!")
+                    else:
+                        st.error("Target Error: No registered employee account was found matching that specific ID code string.")
+                    conn.close()
+                else: st.error("Validation Error: Please fill out both target fields.")
+
+        st.markdown("<br><hr><br>", unsafe_allow_html=True)
         st.subheader("🚨 Danger Zone: Purge Roster Accounts")
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, employee_id, name FROM new_hires")
         del_opts = cursor.fetchall()
-        
-        if not del_opts: 
-            st.info("No employee records found.")
+        if not del_opts: st.info("No employee records found.")
         else:
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
-            
-            # Use the session state for the checkbox
-            p_check = st.checkbox("Confirm permanent account removal deletion.", value=st.session_state.p_check)
-            
-            if st.button("Permanently Erase Profile", type="primary"):
-                if p_check:
-                    cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                    tgt_emp_code = cursor.fetchone()[0]
-                    cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
-                    cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
-                    cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                    conn.commit()
-                    
-                    st.success(f"Purged {target_purge} completely.")
-                    # RESET THE CHECKBOX:
-                    st.session_state.p_check = False
-                    st.rerun()
-                else:
-                    st.warning("Please check the confirmation box before purging.")
+            p_check = st.checkbox("Confirm permanent account removal deletion.")
+            if st.button("Permanently Erase Profile", type="primary") and p_check:
+                cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                tgt_emp_code = cursor.fetchone()[0]
+                cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
+                cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
+                cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                conn.commit()
+                st.success("Purged out completely.")
+                st.rerun()
         conn.close()
