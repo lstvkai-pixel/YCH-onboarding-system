@@ -278,7 +278,8 @@ if st.session_state["user_role"] == "Employee":
             User Code: {st.session_state['username']}
         </span>
     </div>
-""", unsafe_allow_html=True)    
+""", unsafe_allow_html=True)
+    
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
     conn = get_db_connection()
