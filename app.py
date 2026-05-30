@@ -233,7 +233,6 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
     
-    # ✅ MODIFIED: Removed "Submit Feedback Report" from the radio navigation selection layout mapping
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
     conn = get_db_connection()
@@ -296,7 +295,7 @@ if st.session_state["user_role"] == "Employee":
                         st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
 
         elif emp_menu == "📚 Library Training center":
-            st.title("📚 Training Document Library")
+            st.title("📚 Distributed LMS Asset Training Document Library")
             st.markdown("---")
             
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
@@ -316,9 +315,10 @@ if st.session_state["user_role"] == "Employee":
 # ==========================================
 # HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL RUNTIME
 # ==========================================
+# ✅ MODIFIED: Removed "🏅 Certification Center" and "💬 Employee Feedback Portal" from choices configuration array
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
-    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "🏅 Certification Center", "💬 Employee Feedback Portal", "📤 Export Reports", "🚨 System Administration"]
+    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "📤 Export Reports", "🚨 System Administration"]
 )
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
@@ -561,7 +561,7 @@ elif menu == "➕ Add New Employee":
                     # 2. Provision Account Access Ledger
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    # 3. FIX ADDED: Inject the complete missing structural roadmap default tasks list mapping loop!
+                    # 3. Inject the complete missing structural roadmap default tasks list mapping loop!
                     default_tasks = [
                         ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                         ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -742,84 +742,6 @@ elif menu == "📚 Learning Center":
                 conn.close()
                 st.rerun()
 
-elif menu == "🏅 Certification Center":
-    st.title("🏅 License Verification & Certification Center")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
-    hires = cursor.fetchall()
-    cursor.execute("SELECT h.employee_id, h.name, c.cert_name, c.expiry_date FROM certifications c JOIN new_hires h ON c.hire_id = h.id")
-    all_certs = cursor.fetchall()
-    for eid, name, cname, exp_str in all_certs:
-        try:
-            exp_dt = datetime.strptime(exp_str, "%Y-%m-%d")
-            if exp_dt <= datetime.now() + timedelta(days=30):
-                st.error(f"⚠️ **COMPLIANCE ALERT:** License `{cname}` for **{name}** ({eid}) expires on **{exp_str}**!")
-        except ValueError: pass
-    conn.close()
-    c1, c2 = st.columns([2, 1], gap="large")
-    with c1:
-        st.subheader("📜 Active Certified Roster")
-        if not all_certs: st.caption("_No competency certificates indexed._")
-        else:
-            df_c = pd.DataFrame(all_certs, columns=["Employee ID", "Full Name", "Certificate / License Name", "Expiry Date"])
-            st.dataframe(df_c, use_container_width=True, hide_index=True)
-    with c2:
-        st.subheader("➕ Register Certificate License")
-        if hires:
-            h_dict = {f"[{h[1]}] {h[2]}": h[0] for h in hires}
-            target_h = st.selectbox("Select Target Worker Record ID:", list(h_dict.keys()))
-            c_name = st.text_input("Certificate Name:")
-            i_date = st.date_input("Issue Date Validation:")
-            e_date = st.date_input("Expiry Date Target Boundary:")
-            if st.button("Save Certificate to File", use_container_width=True) and c_name != "":
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO certifications (hire_id, cert_name, issue_date, expiry_date) VALUES (?, ?, ?, ?)", (h_dict[target_h], c_name, i_date.strftime("%Y-%m-%d"), e_date.strftime("%Y-%m-%d")))
-                conn.commit()
-                conn.close()
-                st.rerun()
-
-elif menu == "💬 Employee Feedback Portal":
-    st.title("💬 Interactive Employee Engagement & Feedback Workflow")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
-    hires = cursor.fetchall()
-    conn.close()
-    f_pane, a_pane = st.columns([1, 1], gap="large")
-    with f_pane:
-        st.subheader("📝 Submit Workspace Feedback")
-        if hires:
-            h_dict = {f"[{h[1]}] {h[2]}": h[0] for h in hires}
-            f_owner = st.selectbox("Identify Your Candidate Record Token:", list(h_dict.keys()), key="f_owner")
-            f_cat = st.selectbox("Feedback Ticket Category classification:", ["Safety", "Operations", "Training", "HR", "Workplace"])
-            f_text = st.text_area("Type description data or suggestion ideas:")
-            if st.button("Deploy Feedback Ticket", use_container_width=True) and f_text != "":
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO feedback_tickets (hire_id, category, content, ticket_status, date_logged) VALUES (?, ?, ?, 'Open', ?)", (h_dict[f_owner], f_cat, f_text, datetime.now().strftime("%Y-%m-%d")))
-                conn.commit()
-                conn.close()
-                st.rerun()
-    with a_pane:
-        st.subheader("🛡️ Administrative Triage Control")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT t.id, h.name, t.category, t.content, t.ticket_status FROM feedback_tickets t JOIN new_hires h ON t.hire_id = h.id WHERE t.ticket_status = 'Open'")
-        open_tickets = cursor.fetchall()
-        if not open_tickets: st.info("All cases have been resolved.")
-        else:
-            for tid, hname, category, body, stat in open_tickets:
-                with st.container(border=True):
-                    st.markdown(f"**From Worker:** {hname} | **Category:** `{category}`")
-                    st.write(f'"{body}"')
-                    if st.button(f"🔒 Close Ticket Key #{tid}", key=f"cls_{tid}"):
-                        cursor.execute("UPDATE feedback_tickets SET ticket_status = 'Closed' WHERE id = ?", (tid,))
-                        conn.commit()
-                        st.rerun()
-        conn.close()
-
 elif menu == "📤 Export Reports":
     st.title("📤 Multi-Roster Extraction & Executive Reports Engine")
     conn = get_db_connection()
@@ -902,7 +824,7 @@ elif menu == "🚨 System Administration":
         st.subheader("📢 Post Corporate Announcement Bulletin")
         with st.form("ann_form", clear_on_submit=False):
             a_title = st.text_input("Announcement Title Heading:")
-            a_cat = st.selectbox("Target Classification Group:", ["HR Memorandum", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
+            a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
             a_body = st.text_area("Announcement Description Body Content:")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
             
