@@ -318,7 +318,7 @@ if st.session_state["user_role"] == "Employee":
 # ✅ MODIFIED: Feedback Portal cleanly extracted from the primary navigation hub layout arrays
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
-    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "📤 Export Reports", "🚨 System Administration"]
+    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Training Library", "📤 Export Reports", "🚨 System Administration"]
 )
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
