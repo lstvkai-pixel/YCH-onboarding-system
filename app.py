@@ -196,7 +196,7 @@ for state_key, default_value in [
         st.session_state[state_key] = default_value
 
 if not st.session_state.get("authenticated", False):
-    st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EMPLOYEE EXPERIENCE </h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
     st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding, LMS & Compliance Validation Portal</h5>", unsafe_allow_html=True)
     
     with st.container(border=True):
@@ -272,6 +272,26 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
+    st.markdown("""
+    <style>
+        /* Sidebar container styling */
+        .user-code-container {
+            background-color: #FFFFFF !important; /* White background */
+            padding: 8px 12px !important;
+            border-radius: 6px !important;
+            margin-bottom: 10px !important;
+            text-align: center !important;
+            /* Force text color to dark blue */
+            color: #002060 !important; 
+            font-weight: bold !important;
+        }
+        
+        /* Ensure the span/text inside the div also adopts the dark color */
+        .user-code-container span {
+            color: #002060 !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
