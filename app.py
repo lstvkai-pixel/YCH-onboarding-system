@@ -247,8 +247,8 @@ st.markdown("""
     <style>
         /* This removes the hover color change for the sidebar buttons */
         [data-testid="stSidebar"] button:hover {
-            background-color: #002060 !important; /* Keep it the same as your sidebar color */
-            border-color: #002060 !important;
+            background-color: #FFFFFF !important; /* Keep it the same as your sidebar color */
+            border-color: #FFFFFF !important;
             color: #FFFFFF !important;
         }
         
