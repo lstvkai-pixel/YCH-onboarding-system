@@ -243,6 +243,28 @@ if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
+st.markdown("""
+    <style>
+        /* Target buttons inside the sidebar specifically */
+        [data-testid="stSidebar"] button {
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
+        }
+
+        /* Force the button to stay the same color when hovered or active */
+        [data-testid="stSidebar"] button:hover,
+        [data-testid="stSidebar"] button:active,
+        [data-testid="stSidebar"] button:focus {
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
 # ==========================================
