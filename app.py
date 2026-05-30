@@ -74,22 +74,6 @@ st.markdown("""
 if os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_column_width=True)
 st.sidebar.markdown("---")
-
-# ==========================================
-# AUTHENTICATION & NAVIGATION
-# ==========================================
-# (Keep your session state logic here... ensuring all your logic is below the theme/database setup)
-
-# Example of how to structure your main navigation:
-menu = st.sidebar.radio("NAVIGATION HUB", 
-    ["🏢 Dashboard", "➕ Add Employee", "📋 Checklists", "📚 Rules", "📤 Export", "🚨 Administration"])
-
-if menu == "🏢 Dashboard":
-    # Your Landing Page Code
-    pass
-elif menu == "➕ Add Employee":
-    # Your Registration Form
-    pass
     
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
