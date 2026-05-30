@@ -12,6 +12,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 
+# Set page config for a professional "Wide" corporate layout
+st.set_page_config(page_title="YCH EX Platform", layout="wide")
+
 # ==========================================
 # DATABASE ENTERPRISE BACKEND LOGIC
 # ==========================================
@@ -21,55 +24,73 @@ def get_db_connection():
 def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # 1. Create tables only if they don't exist
+    # Ensure all tables exist
     cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, 
         name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, 
         gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
         phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
     
-    # Check if force_password_change exists; if not, rebuild the table
-    cursor.execute("PRAGMA table_info(user_accounts)")
-    columns = [info[1] for info in cursor.fetchall()]
-    if 'force_password_change' not in columns:
-        cursor.execute("DROP TABLE IF EXISTS user_accounts")
-
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, 
         password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', 
         force_password_change INTEGER DEFAULT 1)''')
     
-    # Initial Admin Setup
     cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES ('HR0001', 'YCHADMIN', 'Employer', 0)")
     
-    # 2. Remaining Tables
     cursor.execute('''CREATE TABLE IF NOT EXISTS training_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, log_date TEXT, classroom_hours INTEGER, ojt_hours INTEGER, safety_hours INTEGER, technical_hours INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, task_name TEXT, phase TEXT, assigned_to TEXT, department TEXT, is_completed INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS signed_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, doc_name TEXT, file_path TEXT, date_uploaded TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS lms_materials (id INTEGER PRIMARY KEY AUTOINCREMENT, phase TEXT, title TEXT, doc_type TEXT, file_path TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS certifications (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, cert_name TEXT, issue_date TEXT, expiry_date TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS feedback_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, category TEXT, content TEXT, ticket_status TEXT DEFAULT 'Open', date_logged TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
-    # Ensure announcements schema is verified dynamically
-    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, 
-        content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
-        
-    cursor.execute("PRAGMA table_info(announcements)")
-    ann_cols = [c[1] for c in cursor.fetchall()]
-    if "expiry_date" not in ann_cols:
-        try:
-            cursor.execute("ALTER TABLE announcements ADD COLUMN expiry_date TEXT")
-        except Exception:
-            pass
-
     conn.commit()
     conn.close()
-
+    
 init_database()
 
+# ==========================================
+# CORPORATE BRANDING (THEME)
+# ==========================================
+st.markdown("""
+    <style>
+        .stApp { background-color: #F8FAFC; }
+        [data-testid="stSidebar"] { background-color: #002060; }
+        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
+        h1, h2, h3 { color: #002060; font-family: sans-serif; }
+        .ych-card {
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            border-left: 6px solid #C5A059;
+            margin-bottom: 20px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Add Logo to Sidebar
+if os.path.exists("YCH-EX.jpeg"):
+    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)
+st.sidebar.markdown("---")
+
+# ==========================================
+# AUTHENTICATION & NAVIGATION
+# ==========================================
+# (Keep your session state logic here... ensuring all your logic is below the theme/database setup)
+
+# Example of how to structure your main navigation:
+menu = st.sidebar.radio("NAVIGATION HUB", 
+    ["🏢 Dashboard", "➕ Add Employee", "📋 Checklists", "📚 Rules", "📤 Export", "🚨 Administration"])
+
+if menu == "🏢 Dashboard":
+    # Your Landing Page Code
+    pass
+elif menu == "➕ Add Employee":
+    # Your Registration Form
+    pass
+    
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
 # ==========================================
