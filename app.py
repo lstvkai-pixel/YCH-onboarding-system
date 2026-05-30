@@ -36,33 +36,27 @@ def init_database():
             gender TEXT NOT NULL DEFAULT 'Male',
             status TEXT NOT NULL DEFAULT 'Active',
             photo_path TEXT DEFAULT NULL,
-            classroom_hours INTEGER DEFAULT 0,
-            ojt_hours INTEGER DEFAULT 0,
-            safety_hours INTEGER DEFAULT 0,
-            technical_hours INTEGER DEFAULT 0,
             phase3_approved INTEGER DEFAULT 0,
             phase4_approved INTEGER DEFAULT 0,
             phase5_approved INTEGER DEFAULT 0
         )
     ''')
     
-    columns_to_add = [
-        ("photo_path", "TEXT DEFAULT NULL"),
-        ("classroom_hours", "INTEGER DEFAULT 0"),
-        ("ojt_hours", "INTEGER DEFAULT 0"),
-        ("safety_hours", "INTEGER DEFAULT 0"),
-        ("technical_hours", "INTEGER DEFAULT 0"),
-        ("phase3_approved", "INTEGER DEFAULT 0"),
-        ("phase4_approved", "INTEGER DEFAULT 0"),
-        ("phase5_approved", "INTEGER DEFAULT 0")
-    ]
-    for col_name, col_type in columns_to_add:
-        try:
-            cursor.execute(f"ALTER TABLE new_hires ADD COLUMN {col_name} {col_type}")
-        except sqlite3.OperationalError:
-            pass
-
-    # 2. Tasks Table
+    # 2. Detailed Historical Training Hours Table (For Monthly Auditing)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS training_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hire_id INTEGER,
+            log_date TEXT NOT NULL,
+            classroom_hours INTEGER DEFAULT 0,
+            ojt_hours INTEGER DEFAULT 0,
+            safety_hours INTEGER DEFAULT 0,
+            technical_hours INTEGER DEFAULT 0,
+            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
+        )
+    ''')
+    
+    # 3. Tasks Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,7 +78,7 @@ def init_database():
     cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
     cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
     
-    # 3. LMS Modules Storage Table
+    # 4. LMS Modules Storage Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lms_materials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +89,7 @@ def init_database():
         )
     ''')
     
-    # 4. Certification Ledger Table
+    # 5. Certification Ledger Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS certifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,7 +101,7 @@ def init_database():
         )
     ''')
     
-    # 5. Feedback Tickets Engine Table
+    # 6. Feedback Tickets Engine Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS feedback_tickets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,7 +114,7 @@ def init_database():
         )
     ''')
     
-    # 6. Corporate Announcement Bulletin Table
+    # 7. Corporate Announcement Bulletin Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,7 +125,7 @@ def init_database():
         )
     ''')
     
-    # 7. Managers Reference List Table
+    # 8. Managers Reference List Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS managers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,7 +158,6 @@ PHASE_GROUPS = [
     "Phase 5: Employee Engagement & Follow-up Checklist"
 ]
 
-# Brand Injection CSS styles block
 st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
@@ -210,20 +203,26 @@ def calculate_metrics_pipeline(hire_id):
     conn.close()
     return overall, phase_data
 
+def get_total_learning_hours(hire_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT SUM(classroom_hours + ojt_hours + safety_hours + technical_hours) FROM training_logs WHERE hire_id = ?", (hire_id,))
+    res = cursor.fetchone()[0]
+    conn.close()
+    return res if res else 0
+
 def evaluate_achievements(hire_id, overall, phase_data, total_hours):
     badges = []
     if phase_data.get("Phase 1") == 100: badges.append("🏆 Fast Starter")
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM tasks WHERE hire_id = ? AND assigned_to = 'QA&EHS Team' AND is_completed = 0", (hire_id,))
     pending_safety = cursor.fetchone()[0]
     if pending_safety == 0: badges.append("🏅 Safety Champion")
     conn.close()
-    
     if phase_data.get("Phase 3") == 100: badges.append("🚀 Technical Expert")
     if phase_data.get("Phase 4") == 100: badges.append("⭐ Independent Performer")
-    if overall == 100: badges.append("🎓 YCH Graduate")
+    if overall == 100: badges.append("🎓 Onboarding Graduate")
     return badges
 
 def assign_health_risk(overall):
@@ -252,8 +251,6 @@ if menu == "🏢 Corporate Experience Landing":
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # ✅ REMOVED: The Mission, Vision, and Core Values row block sections
-        
     # High Level Enterprise Metric Scorecards
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -273,16 +270,17 @@ if menu == "🏢 Corporate Experience Landing":
     
     k1, k2, k3, k4 = st.columns(4)
     with k1: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Active Tracks</p><p class='ych-ych-kpi-val ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
-    with k2: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>YCH Graduates</p><p class='ych-ych-kpi-val ych-kpi-val'>{grad_c}</p></div>", unsafe_allow_html=True)
+    # ✅ FIXED: Replaced legacy "YCH Graduates" with "Completed Onboarding"
+    with k2: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Completed Onboarding</p><p class='ych-ych-kpi-val ych-kpi-val'>{grad_c}</p></div>", unsafe_allow_html=True)
     with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-ych-kpi-val ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
     with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-ych-kpi-val ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
-    tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Gamified Leaderboard", "📢 Corporate News Feed"])
+    tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])
     
     with tab_dash:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, classroom_hours, ojt_hours, safety_hours, technical_hours, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
+        cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
         active_dataset = cursor.fetchall()
         conn.close()
         
@@ -290,10 +288,10 @@ if menu == "🏢 Corporate Experience Landing":
             st.info("No active onboarding profiles running inside the logistics roadmap track pipelines.")
         else:
             for node in active_dataset:
-                h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, c_h, o_h, s_h, t_h, p3_a, p4_a, p5_a = node
+                h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = node
                 ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
                 health_state = assign_health_risk(ovr_pct)
-                total_h = c_h + o_h + s_h + t_h
+                total_h = get_total_learning_hours(h_id)
                 earned_achievements = evaluate_achievements(h_id, ovr_pct, p_breakdown, total_h)
                 
                 with st.container(border=True):
@@ -388,21 +386,28 @@ if menu == "🏢 Corporate Experience Landing":
                     st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
                     
     with tab_board:
-        st.subheader("🏆 Enterprise Gamified Performance Leaderboard")
+        # ✅ FIXED: Replaced legacy "Gamified Leaderboard" with Month-by-Month Training Hours analytics tracker
+        st.subheader("📊 Monthly Training Hours Leaderboard")
+        
+        current_year_month = datetime.now().strftime("%Y-%m")
+        selected_month_str = st.text_input("📆 Filter Training Month Year (YYYY-MM):", value=current_year_month)
+        
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, role, classroom_hours, ojt_hours, safety_hours, technical_hours FROM new_hires WHERE status = 'Active'")
+        cursor.execute("""
+            SELECT h.name, h.role, SUM(l.classroom_hours + l.ojt_hours + l.safety_hours + l.technical_hours) as monthly_hours 
+            FROM training_logs l 
+            JOIN new_hires h ON l.hire_id = h.id 
+            WHERE l.log_date LIKE ? 
+            GROUP BY h.id
+        """, (f"{selected_month_str}%",))
         records = cursor.fetchall()
         conn.close()
         
-        board_data = []
-        for r in records:
-            pct, _ = calculate_metrics_pipeline(r[0])
-            tot_h = r[3] + r[4] + r[5] + r[6]
-            board_data.append({"Name": r[1], "Role": r[2], "Completion Rate (%)": pct, "Learning Hours": tot_h})
+        board_data = [{"Name": r[0], "Role": r[1], f"Training Hours ({selected_month_str})": r[2]} for r in records]
             
         if board_data:
-            df_board = pd.DataFrame(board_data).sort_values(by=["Completion Rate (%)", "Learning Hours"], ascending=False).head(10)
+            df_board = pd.DataFrame(board_data).sort_values(by=[f"Training Hours ({selected_month_str})"], ascending=False).head(10)
             
             num_rows = len(df_board)
             medals = []
@@ -415,7 +420,7 @@ if menu == "🏢 Corporate Experience Landing":
             df_board.insert(0, 'Rank Medal', medals)
             st.dataframe(df_board, use_container_width=True, hide_index=True)
         else:
-            st.info("No leaderboard telemetry statistics generated yet. Register employees to populate rankings!")
+            st.info(f"No training hours logged for the month: {selected_month_str}. Use 'Task Checklist View' to log hours under a specific date context!")
             
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
@@ -564,15 +569,22 @@ elif menu == "📋 Task Checklist View":
                     st.rerun()
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
             st.markdown("<hr>", unsafe_allow_html=True)
-            st.subheader("⏱️ Training Hours Tracker")
+            
+            # ✅ FIXED: Expanded Training Hours logger to support an explicit, auditable date calendar field input
+            st.subheader("⏱️ Log Training Hours Audit")
             with st.form("hours_form"):
+                log_date_picker = st.date_input("Training Session Date Context:")
                 add_c = st.number_input("Add Classroom Hours:", min_value=0, step=1)
                 add_o = st.number_input("Add On-the-Job (OJT) Hours:", min_value=0, step=1)
                 add_s = st.number_input("Add Safety Training Hours:", min_value=0, step=1)
                 add_t = st.number_input("Add Technical Training Hours:", min_value=0, step=1)
                 if st.form_submit_button("Log Hours to Employee File"):
-                    cursor.execute("UPDATE new_hires SET classroom_hours=classroom_hours+?, ojt_hours=ojt_hours+?, safety_hours=safety_hours+?, technical_hours=technical_hours+? WHERE id=?", (add_c, add_o, add_s, add_t, sel_id))
+                    cursor.execute("""
+                        INSERT INTO training_logs (hire_id, log_date, classroom_hours, ojt_hours, safety_hours, technical_hours) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (sel_id, log_date_picker.strftime("%Y-%m-%d"), add_c, add_o, add_s, add_t))
                     conn.commit()
+                    st.success("Operational learning hours appended with explicit audit timestamps successfully.")
                     st.rerun()
             conn.close()
 
@@ -684,7 +696,7 @@ elif menu == "💬 Employee Feedback Portal":
 elif menu == "📤 Export Reports":
     st.title("📤 Multi-Roster Extraction & Executive Reports Engine")
     conn = get_db_connection()
-    df_exec = pd.read_sql_query("SELECT employee_id, name, mobile_number, department, role, manager, start_date, status, classroom_hours+ojt_hours+safety_hours+technical_hours AS total_hours FROM new_hires", conn)
+    df_exec = pd.read_sql_query("SELECT employee_id, name, mobile_number, department, role, manager, start_date, status FROM new_hires", conn)
     conn.close()
     if df_exec.empty: st.info("No compiled employee logs detected.")
     else:
@@ -694,7 +706,8 @@ elif menu == "📤 Export Reports":
             fig_dept = px.pie(df_exec, names="department", title="Breakdown by Corporate Account Cluster", hole=0.4, color_discrete_sequence=px.colors.sequential.YlGnBu)
             st.plotly_chart(fig_dept, use_container_width=True)
         with ec2:
-            fig_hours = px.bar(df_exec, x="name", y="total_hours", title="Cumulative Training Hours Tracked Per Candidate", color_discrete_sequence=["#003366"])
+            # Replaced with general performance counts visualization
+            fig_hours = px.histogram(df_exec, x="department", title="Candidate Counts Distributed Across Active Accounts", color_discrete_sequence=["#003366"])
             st.plotly_chart(fig_hours, use_container_width=True)
         st.markdown("<hr>", unsafe_allow_html=True)
         target_dataset_selection = st.selectbox("Select Target Segment Context:", ["Active Roster", "Archived Roster", "Complete Master List"])
@@ -751,3 +764,12 @@ elif menu == "🚨 System Administration":
         if not del_opts: st.info("No employee records found.")
         else:
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
+            target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
+            p_check = st.checkbox("Confirm permanent account removal deletion.")
+            if st.button("Permanently Erase Profile", type="primary") and p_check:
+                cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
+                cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                conn.commit()
+                st.success("Purged out completely.")
+                st.rerun()
+        conn.close()
