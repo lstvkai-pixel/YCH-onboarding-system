@@ -53,8 +53,8 @@ def init_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
-    # Migration Check: Verify if expiry_date column exists in announcements table layout schema
-    cursor.pragma("table_info(announcements)")
+    # ✅ FIXED: Changed cursor.pragma(...) to cursor.execute("PRAGMA ...") to resolve the AttributeError crash cleanly
+    cursor.execute("PRAGMA table_info(announcements)")
     ann_cols = [c[1] for c in cursor.fetchall()]
     if "expiry_date" not in ann_cols:
         try:
@@ -516,7 +516,6 @@ if menu == "🏢 Corporate Experience Landing":
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         
-        # ✅ FILTER OUT EXPIRED POSTS dynamically using the current calendar execution date boundary parameters
         curr_time_str = datetime.now().strftime("%Y-%m-%d")
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -744,7 +743,7 @@ elif menu == "📚 Rules and Guidelines":
                         with open(f_path, "rb") as file_bytes:
                             st.download_button(label=f"📥 Download {title}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_admin_lms_{lms_id}")
                 
-                # ✅ ADDED: Delete button to completely drop training asset nodes from disk/DB memory
+                # ✅ ADDED: Red block button structure layout loop to target drop commands cleanly
                 with c_actions:
                     if st.button("🗑️ Delete Asset", key=f"del_lms_{lms_id}", use_container_width=True):
                         conn = get_db_connection()
@@ -870,7 +869,7 @@ elif menu == "🚨 System Administration":
             a_body = st.text_area("Announcement Description Body Content:")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
             
-            # ✅ ADDED: Mandatory duration picker options mapping path cleanly
+            # Duration Picker Config Selection Options Block
             st.markdown("**📅 Schedule Options:**")
             has_expiry = st.checkbox("Set an expiration date for this post?")
             expiry_date_val = ""
@@ -894,7 +893,7 @@ elif menu == "🚨 System Administration":
                 st.success("📢 Bulletin notice published live successfully!")
                 st.rerun()
 
-        # ✅ ADDED: Announcement Control Deck Ledger interface map configuration row block
+        # ✅ Announcement Control Deck List Interface Engine
         st.markdown("---")
         st.subheader("⚙️ Manage Published Bulletins")
         conn = get_db_connection()
