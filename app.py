@@ -60,10 +60,14 @@ def init_database():
         )
     ''')
     
-    # System Migration Mappings
+    # Global Lifecycle Migration Mappings
     cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
+    
+    # ✅ FIX: Migration to reassign all historical Phase 3 tasks from HR Team to the correct Ops or QA teams
+    cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
+    cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
     
     # 3. Managers Masterlist Table
     cursor.execute('''
@@ -143,7 +147,6 @@ st.sidebar.title("🏢 YCH_HR Workspace")
 st.sidebar.caption("Logistics Roster Management Platform")
 st.sidebar.markdown("---")
 
-# ✅ FIXED RE-ORDERED SEQUENCE MAPPING: Arranged radio list precisely as requested
 menu = st.sidebar.radio(
     "WORKSPACE MENU", 
     ["📊 New Hires Dashboard", "➕ Add New Employee", "📋 Task Checklist View", "🗃️ Archived Roster", "📤 Export Reports", "🚨 System Administration"]
@@ -375,7 +378,7 @@ elif menu == "➕ Add New Employee":
             del st.session_state["last_registered_worker"]
             st.rerun()
 
-# --- VIEW 3: CHECKLIST RENDERING INTERFACE LAYER ---
+# --- VIEW 3: CHECKLIST LAYER ---
 elif menu == "📋 Task Checklist View":
     st.title("Operational Verification — Checklist Layer")
     st.caption("Manage granular structural checklist processing rows mapped by targeted phase constraints.")
