@@ -12,7 +12,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 
-# Set page config for a professional "Wide" corporate layout
+# Set page config
 st.set_page_config(page_title="YCH EX Platform", layout="wide")
 
 # ==========================================
@@ -24,57 +24,70 @@ def get_db_connection():
 def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Ensure all tables exist
     cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, 
         name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, 
         gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
         phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
-    
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, 
         password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', 
         force_password_change INTEGER DEFAULT 1)''')
-    
     cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES ('HR0001', 'YCHADMIN', 'Employer', 0)")
-    
     cursor.execute('''CREATE TABLE IF NOT EXISTS training_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, log_date TEXT, classroom_hours INTEGER, ojt_hours INTEGER, safety_hours INTEGER, technical_hours INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, task_name TEXT, phase TEXT, assigned_to TEXT, department TEXT, is_completed INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS signed_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, doc_name TEXT, file_path TEXT, date_uploaded TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS lms_materials (id INTEGER PRIMARY KEY AUTOINCREMENT, phase TEXT, title TEXT, doc_type TEXT, file_path TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
-    
     conn.commit()
     conn.close()
-    
+
 init_database()
 
 # ==========================================
-# CORPORATE BRANDING (THEME)
+# CORPORATE THEME & CSS
 # ==========================================
 st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
         [data-testid="stSidebar"] { background-color: #002060; }
         [data-testid="stSidebar"] * { color: #FFFFFF !important; }
-        h1, h2, h3 { color: #002060; font-family: sans-serif; }
+        
         .ych-card {
             background-color: #FFFFFF;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            border-left: 6px solid #C5A059;
-            margin-bottom: 20px;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            border-left: 5px solid #003366;
+            margin-bottom: 15px;
+            height: 125px;
+        }
+        
+        /* THE FIX: Styles the User Code box correctly */
+        .user-code-box {
+            background-color: #FFFFFF !important;
+            color: #002060 !important;
+            padding: 10px !important;
+            border-radius: 6px !important;
+            text-align: center !important;
+            font-weight: bold !important;
+            margin-bottom: 15px !important;
+            border: 1px solid #FFFFFF !important;
+        }
+
+        [data-testid="stSidebar"] button {
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Add Logo to Sidebar
+# Sidebar Logo
 if os.path.exists("YCH-EX.jpeg"):
-    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)
-st.sidebar.markdown("---")
-    
+    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)    
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
 # ==========================================
