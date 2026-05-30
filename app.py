@@ -938,6 +938,13 @@ elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
     adm_c1, adm_c2 = st.columns([1, 1], gap="large")
     with adm_c1:
+        # TEMPORARY DEBUGGING TOOL
+        st.subheader("🔍 Debug: View All Accounts")
+        if st.button("List All User Accounts"):
+            conn = get_db_connection()
+            df_users = pd.read_sql_query("SELECT employee_id, role_type FROM user_accounts", conn)
+            st.dataframe(df_users)
+            conn.close()
         st.markdown("---")
         st.subheader("➕ Create New Admin Account")
         with st.form("new_admin_form", clear_on_submit=True):
