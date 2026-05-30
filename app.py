@@ -42,7 +42,7 @@ def init_database():
         )
     ''')
 
-    # 2. Secure Accounts Ledger Table (Drives Dual Interface Experience)
+    # 2. Secure Accounts Ledger Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +52,7 @@ def init_database():
         )
     ''')
     
-    # ✅ FIXED DEFAULT: Auto-provisions Employer username to 'HR0001' with password 'YCHADMIN'
+    # Default Employer account provision setup
     cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type) VALUES ('HR0001', 'YCHADMIN', 'Employer')")
     
     # 3. Detailed Historical Training Hours Table
@@ -151,7 +151,7 @@ def init_database():
         )
     ''')
     
-    # Clean system alignment data migrations maps
+    # Core internal systemic mappings alignment
     cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
@@ -290,7 +290,8 @@ if not st.session_state["authenticated"]:
         if st.button("Authorize Portal Entry", use_container_width=True):
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AppAND password = ?", (login_user, login_pass)) if 'AppAND' in locals() else cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AND password = ?", (login_user, login_pass))
+            # ✅ FIXED: Removed 'AppAND' syntax typo mismatch to perform clear password validations cleanly
+            cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AND password = ?", (login_user, login_pass))
             found_acct = cursor.fetchone()
             conn.close()
             
@@ -354,7 +355,6 @@ if st.session_state["user_role"] == "Employee":
                         st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("🛣px Onboarding Visual Journey Tracks Progression Map") if 'st' in locals() and hasattr(st, 'markdown') else None
             st.markdown("### Onboarding Journey Track Progress Map")
             m_cols = st.columns(5)
             for step_idx, phase_spec in enumerate(PHASE_GROUPS):
@@ -417,10 +417,6 @@ if st.session_state["user_role"] == "Employee":
 # ==========================================
 # HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL RUNTIME
 # ==========================================
-st.sidebar.markdown(f"👤 **Employer Access Profile:** `{st.session_state['username']}`")
-st.sidebar.markdown("🔑 **Role Token Authorization:** Corporate Admin Hub")
-st.sidebar.markdown("---")
-
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
     ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "🏅 Certification Center", "💬 Employee Feedback Portal", "📤 Export Reports", "🚨 System Administration"]
@@ -658,13 +654,12 @@ elif menu == "➕ Add New Employee":
                     os.makedirs("photos", exist_ok=True)
                     saved_img_path = f"photos/{input_emp_id}_{uploaded_pic.name}"
                     with open(saved_img_path, "wb") as f: f.write(uploaded_pic.getbuffer())
-                
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
                     cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
                                    (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, saved_img_path))
-                    new_hire_id = cursor.lastrowid
+                    new_id = cursor.lastrowid
                     
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type) VALUES (?, 'YCH1234', 'Employee')", (input_emp_id,))
                     
@@ -687,9 +682,9 @@ elif menu == "➕ Add New Employee":
                         ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team")
                     ]
                     for t_name, p_name, own in default_tasks:
-                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_hire_id, t_name, p_name, own, input_dept))
+                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_id, t_name, p_name, own, input_dept))
                     conn.commit()
-                    st.success(f"🎉 Success: Created profile and auto-provisioned login! Default password is: 'YCH1234'")
+                    st.success("Successfully generated profile tracking layers.")
                 except sqlite3.IntegrityError:
                     st.error("Conflict Error: That Employee ID Number is already registered.")
                 conn.close()
