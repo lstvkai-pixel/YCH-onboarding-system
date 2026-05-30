@@ -167,7 +167,6 @@ def assign_status_health(overall):
 # ==========================================
 # AUTHENTICATION EXPERIENCE ROUTER STATE MACHINE
 # ==========================================
-# ✅ STEP 1: Bulletproof initialization loop
 for state_key, default_value in [
     ("authenticated", False),
     ("username", None),
@@ -178,7 +177,6 @@ for state_key, default_value in [
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
 
-# ✅ STEP 2: Strict enforcement check prior to loading layout maps
 if not st.session_state.get("authenticated", False):
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
     st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding, LMS & Compliance Validation Portal</h5>", unsafe_allow_html=True)
@@ -206,41 +204,7 @@ if not st.session_state.get("authenticated", False):
                 st.error("Authentication Intercepted: Invalid username or password provided.")
     st.stop()
 
-# ✅ STEP 3: Protected password upgrade screen route 
 if st.session_state.get("change_pwd", False):
-    st.warning("⚠️ First-time login: Please update your default password.")
-    new_pwd = st.text_input("New Password:", type="password")
-    if st.button("Update Password", use_container_width=True):
-        if new_pwd.strip() != "":
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("UPDATE user_accounts SET password = ?, force_password_change = 0 WHERE employee_id = ?", (new_pwd, st.session_state["username"]))
-            conn.commit()
-            conn.close()
-            st.session_state["change_pwd"] = False
-            st.success("Password secured! Redirecting...")
-            st.rerun()
-        else:
-            st.error("Password cannot be blank.")
-    st.stop()
-# ✅ FIXED: Use .get() to prevent KeyError if the state gets dropped unexpectedly
-if st.session_state.get("change_pwd", False):
-    st.warning("⚠️ First-time login: Please update your default password.")
-    new_pwd = st.text_input("New Password:", type="password")
-    if st.button("Update Password", use_container_width=True):
-        if new_pwd.strip() != "":
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("UPDATE user_accounts SET password = ?, force_password_change = 0 WHERE employee_id = ?", (new_pwd, st.session_state["username"]))
-            conn.commit()
-            conn.close()
-            st.session_state["change_pwd"] = False
-            st.success("Password secured! Redirecting...")
-            st.rerun()
-        else:
-            st.error("Password cannot be blank.")
-    st.stop()
-if st.session_state["change_pwd"]:
     st.warning("⚠️ First-time login: Please update your default password.")
     new_pwd = st.text_input("New Password:", type="password")
     if st.button("Update Password", use_container_width=True):
@@ -269,7 +233,8 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
     
-    emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center", "💬 Submit Feedback Report"])
+    # ✅ MODIFIED: Removed "Submit Feedback Report" from the radio navigation selection layout mapping
+    emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -307,13 +272,11 @@ if st.session_state["user_role"] == "Employee":
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### Onboarding Journey Track Progress Map")
             
-            # ✅ Here it is assigned to m_cols
             m_cols = st.columns(5)
             for step_idx, phase_spec in enumerate(PHASE_GROUPS):
                 p_code = phase_spec.split(":")[0]
                 p_val = p_breakdown[p_code]
                 
-                # ✅ FIXED: Changed from columns_space to m_cols to match the variable above!
                 with m_cols[step_idx]:
                     bg_lbl = "🔵" if p_val == 100 else ("🟠" if p_val > 0 else "⚪")
                     st.markdown(f"<div style='text-align:center; font-size:12px; background:#EEF2F6; padding:8px; border-radius:4px;'>{bg_lbl} <b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
@@ -348,23 +311,6 @@ if st.session_state["user_role"] == "Employee":
             else:
                 for title, d_type in items:
                     st.markdown(f"📄 **{title}** `[{d_type}]` — _Read and understand guidelines carefully._")
-
-        elif emp_menu == "💬 Submit Feedback Report":
-            st.title("💬 Two-Way HR Engagement Feedback Ticket System")
-            st.markdown("---")
-            
-            with st.form("emp_private_feedback", clear_on_submit=True):
-                f_cat = st.selectbox("Identify Category classification:", ["Safety", "Operations", "Training", "HR", "Workplace"])
-                f_text = st.text_area("Type description contents details:")
-                if st.form_submit_button("🔒 File Private Ticket to HR"):
-                    if f_text != "":
-                        conn = get_db_connection()
-                        cursor = conn.cursor()
-                        cursor.execute("INSERT INTO feedback_tickets (hire_id, category, content, ticket_status, date_logged) VALUES (?, ?, ?, 'Open', ?)", (h_id, f_cat, f_text, datetime.now().strftime("%Y-%m-%d")))
-                        conn.commit()
-                        conn.close()
-                        st.success("Feedback filed cleanly. Corporate personnel teams will process resolution parameters.")
-                    else: st.error("Ticket description cannot be empty.")
     st.stop()
 
 # ==========================================
@@ -685,345 +631,4 @@ elif menu == "📋 Task Checklist View":
                 for t_id, t_name, team, comp in rows:
                     c1, c2 = st.columns([4, 1])
                     with c1:
-                        checked = st.checkbox(f"**{t_name}** `[{team}]`", value=bool(comp), key=f"t_line_{t_id}", disabled=is_locked)
-                        if checked != bool(comp) and not is_locked:
-                            cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (1 if checked else 0, t_id))
-                            conn.commit()
-                            st.rerun()
-                    with c2:
-                        if st.button("🗑️ Drop", key=f"drop_{t_id}", disabled=is_locked):
-                            cursor.execute("DELETE FROM tasks WHERE id = ?", (t_id,))
-                            conn.commit()
-                            st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
-            conn.close()
-            
-        with right_pane:
-            st.subheader("📂 Signed Documents Vault")
-            with st.form("vault_upload_form", clear_on_submit=True):
-                doc_title_input = st.text_input("Document Name / Description:", placeholder="e.g. Signed Employment Contract")
-                uploaded_doc_file = st.file_uploader("Upload Signed Document File (.pdf, .png, .jpg):", type=["pdf", "png", "jpg", "jpeg"])
-                if st.form_submit_button("🔒 Upload Document to Vault") and doc_title_input != "" and uploaded_doc_file is not None:
-                    os.makedirs("vault", exist_ok=True)
-                    clean_filename = f"vault/{sel_id}_{int(datetime.now().timestamp())}_{uploaded_doc_file.name}"
-                    with open(clean_filename, "wb") as f: f.write(uploaded_doc_file.getbuffer())
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO signed_documents (hire_id, doc_name, file_path, date_uploaded) VALUES (?, ?, ?, ?)", 
-                                   (sel_id, doc_title_input, clean_filename, datetime.now().strftime("%Y-%m-%d")))
-                    conn.commit()
-                    conn.close()
-                    st.success("Document uploaded securely to employee records vault!")
-                    st.rerun()
-            
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, doc_name, file_path FROM signed_documents WHERE hire_id = ?", (sel_id,))
-            saved_docs = cursor.fetchall()
-            conn.close()
-            
-            if saved_docs:
-                st.markdown("##### 📁 Archived Documents Vault Logs")
-                for d_id, d_name, d_path in saved_docs:
-                    if os.path.exists(d_path):
-                        with open(d_path, "rb") as file_bytes:
-                            st.download_button(label=f"📥 Download {d_name}", data=file_bytes.read(), file_name=os.path.basename(d_path), key=f"dl_vdoc_{d_id}", use_container_width=True)
-            st.markdown("<hr>", unsafe_allow_html=True)
-
-            st.subheader("🛡️ Manager Sign-off Portal")
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            if not p3_app:
-                if st.button("✅ Approve Phase 3: Operations Training", use_container_width=True):
-                    cursor.execute("UPDATE new_hires SET phase3_approved = 1 WHERE id = ?", (sel_id,))
-                    conn.commit()
-                    st.rerun()
-            else: st.markdown("⚙️ _Phase 3 Operations Training Signed Off_")
-            if not p4_app:
-                if st.button("✅ Approve Phase 4: Performance Assessment", use_container_width=True):
-                    cursor.execute("UPDATE new_hires SET phase4_approved = 1 WHERE id = ?", (sel_id,))
-                    conn.commit()
-                    st.rerun()
-            else: st.markdown("📈 _Phase 4 Performance Evaluation Signed Off_")
-            if not p5_app:
-                if st.button("✅ Approve Phase 5: HR Final Confirmation", use_container_width=True):
-                    cursor.execute("UPDATE new_hires SET phase5_approved = 1 WHERE id = ?", (sel_id,))
-                    conn.commit()
-                    st.rerun()
-            else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
-            st.markdown("<hr>", unsafe_allow_html=True)
-            
-            st.subheader("⏱️ Log Training Hours Audit")
-            with st.form("hours_form", clear_on_submit=True):
-                log_date_picker = st.date_input("Training Session Date Context:")
-                add_c = st.number_input("Add Classroom Hours:", min_value=0, step=1)
-                add_o = st.number_input("Add On-the-Job (OJT) Hours:", min_value=0, step=1)
-                add_s = st.number_input("Add Safety Training Hours:", min_value=0, step=1)
-                add_t = st.number_input("Add Technical Training Hours:", min_value=0, step=1)
-                if st.form_submit_button("Log Hours to Employee File"):
-                    cursor.execute("""
-                        INSERT INTO training_logs (hire_id, log_date, classroom_hours, ojt_hours, safety_hours, technical_hours) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (sel_id, log_date_picker.strftime("%Y-%m-%d"), add_c, add_o, add_s, add_t))
-                    conn.commit()
-                    st.success(f"🎉 Success: Logged {add_c+add_o+add_s+add_t} total training hours for this date context!")
-            conn.close()
-
-elif menu == "📚 Learning Center":
-    st.title("📚 YCH Group Learning Management System (LMS)")
-    st.markdown("---")
-    tab_view, tab_upload = st.tabs(["📖 Training Materials Repository", "📤 Upload New Learning Asset"])
-    with tab_view:
-        sel_phase = st.selectbox("Filter Assets by Lifecycle Phase Context:", PHASE_GROUPS)
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT title, doc_type FROM lms_materials WHERE phase = ?", (sel_phase,))
-        items = cursor.fetchall()
-        conn.close()
-        if not items: st.info("No training modules assigned yet.")
-        else:
-            for title, d_type in items: st.markdown(f"📄 **{title}** `[{d_type}]`")
-    with tab_upload:
-        with st.form("lms_upload_form", clear_on_submit=True):
-            asset_title = st.text_input("Module Training Document Title:")
-            asset_phase = st.selectbox("Link Material to Target Phase:", PHASE_GROUPS)
-            asset_type = st.selectbox("Document Classification Type:", ["SOP PDF", "Work Instruction", "Safety Manual", "Training Video Link"])
-            if st.form_submit_button("Deploy Material to LMS Node") and asset_title != "":
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO lms_materials (phase, title, doc_type) VALUES (?, ?, ?)", (asset_phase, asset_title, asset_type))
-                conn.commit()
-                conn.close()
-                st.rerun()
-
-elif menu == "🏅 Certification Center":
-    st.title("🏅 License Verification & Certification Center")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
-    hires = cursor.fetchall()
-    cursor.execute("SELECT h.employee_id, h.name, c.cert_name, c.expiry_date FROM certifications c JOIN new_hires h ON c.hire_id = h.id")
-    all_certs = cursor.fetchall()
-    for eid, name, cname, exp_str in all_certs:
-        try:
-            exp_dt = datetime.strptime(exp_str, "%Y-%m-%d")
-            if exp_dt <= datetime.now() + timedelta(days=30):
-                st.error(f"⚠️ **COMPLIANCE ALERT:** License `{cname}` for **{name}** ({eid}) expires on **{exp_str}**!")
-        except ValueError: pass
-    conn.close()
-    c1, c2 = st.columns([2, 1], gap="large")
-    with c1:
-        st.subheader("📜 Active Certified Roster")
-        if not all_certs: st.caption("_No competency certificates indexed._")
-        else:
-            df_c = pd.DataFrame(all_certs, columns=["Employee ID", "Full Name", "Certificate / License Name", "Expiry Date"])
-            st.dataframe(df_c, use_container_width=True, hide_index=True)
-    with c2:
-        st.subheader("➕ Register Certificate License")
-        if hires:
-            h_dict = {f"[{h[1]}] {h[2]}": h[0] for h in hires}
-            target_h = st.selectbox("Select Target Worker Record ID:", list(h_dict.keys()))
-            c_name = st.text_input("Certificate Name:")
-            i_date = st.date_input("Issue Date Validation:")
-            e_date = st.date_input("Expiry Date Target Boundary:")
-            if st.button("Save Certificate to File", use_container_width=True) and c_name != "":
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO certifications (hire_id, cert_name, issue_date, expiry_date) VALUES (?, ?, ?, ?)", (h_dict[target_h], c_name, i_date.strftime("%Y-%m-%d"), e_date.strftime("%Y-%m-%d")))
-                conn.commit()
-                conn.close()
-                st.rerun()
-
-elif menu == "💬 Employee Feedback Portal":
-    st.title("💬 Interactive Employee Engagement & Feedback Workflow")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
-    hires = cursor.fetchall()
-    conn.close()
-    f_pane, a_pane = st.columns([1, 1], gap="large")
-    with f_pane:
-        st.subheader("📝 Submit Workspace Feedback")
-        if hires:
-            h_dict = {f"[{h[1]}] {h[2]}": h[0] for h in hires}
-            f_owner = st.selectbox("Identify Your Candidate Record Token:", list(h_dict.keys()), key="f_owner")
-            f_cat = st.selectbox("Feedback Ticket Category classification:", ["Safety", "Operations", "Training", "HR", "Workplace"])
-            f_text = st.text_area("Type description data or suggestion ideas:")
-            if st.button("Deploy Feedback Ticket", use_container_width=True) and f_text != "":
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO feedback_tickets (hire_id, category, content, ticket_status, date_logged) VALUES (?, ?, ?, 'Open', ?)", (h_dict[f_owner], f_cat, f_text, datetime.now().strftime("%Y-%m-%d")))
-                conn.commit()
-                conn.close()
-                st.rerun()
-    with a_pane:
-        st.subheader("🛡️ Administrative Triage Control")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT t.id, h.name, t.category, t.content, t.ticket_status FROM feedback_tickets t JOIN new_hires h ON t.hire_id = h.id WHERE t.ticket_status = 'Open'")
-        open_tickets = cursor.fetchall()
-        if not open_tickets: st.info("All cases have been resolved.")
-        else:
-            for tid, hname, category, body, stat in open_tickets:
-                with st.container(border=True):
-                    st.markdown(f"**From Worker:** {hname} | **Category:** `{category}`")
-                    st.write(f'"{body}"')
-                    if st.button(f"🔒 Close Ticket Key #{tid}", key=f"cls_{tid}"):
-                        cursor.execute("UPDATE feedback_tickets SET ticket_status = 'Closed' WHERE id = ?", (tid,))
-                        conn.commit()
-                        st.rerun()
-        conn.close()
-
-elif menu == "📤 Export Reports":
-    st.title("📤 Multi-Roster Extraction & Executive Reports Engine")
-    conn = get_db_connection()
-    df_exec = pd.read_sql_query("SELECT employee_id, name, mobile_number, department, role, manager, start_date, status FROM new_hires", conn)
-    conn.close()
-    if df_exec.empty: st.info("No compiled employee logs detected.")
-    else:
-        st.subheader("📈 Operational Dashboard Breakdown")
-        ec1, ec2 = st.columns(2)
-        with ec1:
-            fig_dept = px.pie(df_exec, names="department", title="Breakdown by Corporate Account Cluster", hole=0.4, color_discrete_sequence=px.colors.sequential.YlGnBu)
-            st.plotly_chart(fig_dept, use_container_width=True)
-        with ec2:
-            fig_hours = px.histogram(df_exec, x="department", title="Candidate Counts Distributed Across Active Accounts", color_discrete_sequence=["#003366"])
-            st.plotly_chart(fig_hours, use_container_width=True)
-        st.markdown("<hr>", unsafe_allow_html=True)
-        target_dataset_selection = st.selectbox("Select Target Segment Context:", ["Active Roster", "Archived Roster", "Complete Master List"])
-        conn = get_db_connection()
-        base_cmd = "SELECT employee_id, name, mobile_number, gender, department, role, manager, start_date, status FROM new_hires"
-        if "Active" in target_dataset_selection: base_cmd += " WHERE status = 'Active'"; fn = "active_employees.xlsx"
-        elif "Archived" in target_dataset_selection: base_cmd += " WHERE status = 'Archived'"; fn = "archived_employees.xlsx"
-        else: fn = "all_employees.xlsx"
-        df_out = pd.read_sql_query(base_cmd, conn)
-        conn.close()
-        df_out.columns = ["Employee ID", "Full Name", "Mobile Number", "Gender", "Department", "Position", "Reporting Manager", "Start Date", "Status"]
-        ex_stream = io.BytesIO()
-        with pd.ExcelWriter(ex_stream, engine='openpyxl') as writer:
-            df_out.to_excel(writer, index=False, sheet_name='YCH_Roster_Audit')
-        st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-
-# --- WORKSPACE 9: SYSTEM ADMINISTRATION CONTROL PANEL ---
-elif menu == "🚨 System Administration":
-    st.title("🚨 Enterprise Control Room & System Administration")
-    
-    # Initialize the delete checkbox confirmation state mapping cleanly
-    if "p_check_state" not in st.session_state:
-        st.session_state["p_check_state"] = False
-
-    adm_c1, adm_c2 = st.columns([1, 1], gap="large")
-    with adm_c1:
-        st.subheader("🔍 Debug: View All Accounts")
-        if st.button("List All User Accounts", use_container_width=True):
-            conn = get_db_connection()
-            df_users = pd.read_sql_query("SELECT employee_id, role_type FROM user_accounts", conn)
-            st.dataframe(df_users, use_container_width=True)
-            conn.close()
-        st.markdown("---")
-        st.subheader("➕ Create New Admin Account")
-        with st.form("new_admin_form", clear_on_submit=True):
-            new_admin_id = st.text_input("New Admin Username/ID:").strip().upper()
-            new_admin_pass = st.text_input("New Admin Password:", type="password")
-            if st.form_submit_button("Create Admin"):
-                if new_admin_id and new_admin_pass:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    try:
-                        cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, ?, 'Employer', 0)", 
-                                       (new_admin_id, new_admin_pass))
-                        conn.commit()
-                        st.success(f"Admin '{new_admin_id}' created successfully!")
-                    except sqlite3.IntegrityError:
-                        st.error("Admin ID already exists.")
-                    conn.close()
-                    st.rerun()
-        st.subheader("👤 Managers Masterlist Validation Options")
-        with st.form("admin_m_form_v2", clear_on_submit=True):
-            new_manager = st.text_input("Register New Operation Manager / PIC:")
-            if st.form_submit_button("➕ Save Manager to System") and new_manager != "":
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                try:
-                    cursor.execute("INSERT INTO managers (manager_name) VALUES (?)", (new_manager.strip(),))
-                    conn.commit()
-                    st.success("Operational authority logged successfully.")
-                except sqlite3.IntegrityError: st.error("Entry already exists.")
-                conn.close()
-                st.rerun()
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.subheader("📢 Post Corporate Announcement Bulletin")
-        with st.form("ann_form", clear_on_submit=False):
-            a_title = st.text_input("Announcement Title Heading:")
-            a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
-            a_body = st.text_area("Announcement Description Body Content:")
-            a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
-            
-            if st.form_submit_button("📢 Publish Notice to Workspace") and a_title != "":
-                saved_ann_file = None
-                if a_file is not None:
-                    os.makedirs("attachments", exist_ok=True)
-                    saved_ann_file = f"attachments/{int(datetime.now().timestamp())}_{a_file.name}"
-                    with open(saved_ann_file, "wb") as f_out: f_out.write(a_file.getbuffer())
-                
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path) VALUES (?, ?, ?, ?, ?)", 
-                               (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file))
-                conn.commit()
-                conn.close()
-                st.success("📢 Bulletin notice published live successfully!")
-                st.rerun()
-    with adm_c2:
-        st.subheader("🔑 Employee Password Override Control Panel")
-        with st.form("password_reset_form", clear_on_submit=True):
-            target_reset_id = st.text_input("Target Employee ID to Override (e.g., SG0002):").strip().upper()
-            new_target_password = st.text_input("Provide New Account Access Password:", type="password")
-            
-            if st.form_submit_button("🔒 Apply Password Override"):
-                if target_reset_id != "" and new_target_password != "":
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT id FROM user_accounts WHERE UPPER(employee_id) = ? AND role_type = 'Employee'", (target_reset_id,))
-                    valid_emp_account = cursor.fetchone()
-                    
-                    if valid_emp_account:
-                        cursor.execute("UPDATE user_accounts SET password = ? WHERE UPPER(employee_id) = ?", (new_target_password, target_reset_id))
-                        conn.commit()
-                        st.success(f"Successfully overrode access security key for employee: `{target_reset_id}`!")
-                    else:
-                        st.error("Target Error: No registered employee account was found matching that specific ID code string.")
-                    conn.close()
-                else: st.error("Validation Error: Please fill out both target fields.")
-
-        st.markdown("<br><hr><br>", unsafe_allow_html=True)
-        st.subheader("🚨 Danger Zone: Purge Roster Accounts")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, employee_id, name FROM new_hires")
-        del_opts = cursor.fetchall()
-        if not del_opts: st.info("No employee records found.")
-        else:
-            del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
-            target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
-            
-            # Tie checkbox value directly to session state
-            p_check = st.checkbox("Confirm permanent account removal deletion.", value=st.session_state["p_check_state"])
-            
-            if st.button("Permanently Erase Profile", type="primary"):
-                if p_check:
-                    cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                    tgt_emp_code = cursor.fetchone()[0]
-                    cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
-                    cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
-                    cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                    conn.commit()
-                    
-                    st.success("Purged out completely.")
-                    # Automatically uncheck the box for safety on rerun
-                    st.session_state["p_check_state"] = False
-                    st.rerun()
-                else:
-                    st.error("Action Intercepted: You must check the confirmation box first.")
-        conn.close()
+                        checked = st.checkbox(f"**{t_name}** `[{team}]`", value=bool(comp), key=f"t_line_{t_id
