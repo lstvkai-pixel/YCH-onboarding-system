@@ -50,10 +50,13 @@ def init_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS lms_materials (id INTEGER PRIMARY KEY AUTOINCREMENT, phase TEXT, title TEXT, doc_type TEXT, file_path TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS certifications (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, cert_name TEXT, issue_date TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS feedback_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, hire_id INTEGER, category TEXT, content TEXT, ticket_status TEXT DEFAULT 'Open', date_logged TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS managers (id INTEGER PRIMARY KEY AUTOINCREMENT, manager_name TEXT UNIQUE)''')
     
-    # ✅ FIXED: Changed cursor.pragma(...) to cursor.execute("PRAGMA ...") to resolve the AttributeError crash cleanly
+    # ✅ SAFE MIGRATION PATCH: Ensure announcements schema is verified dynamically before structural commands run
+    cursor.execute('''CREATE TABLE IF NOT EXISTS announcements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, category TEXT, 
+        content TEXT, date_posted TEXT, file_path TEXT, expiry_date TEXT)''')
+        
     cursor.execute("PRAGMA table_info(announcements)")
     ann_cols = [c[1] for c in cursor.fetchall()]
     if "expiry_date" not in ann_cols:
@@ -743,7 +746,6 @@ elif menu == "📚 Rules and Guidelines":
                         with open(f_path, "rb") as file_bytes:
                             st.download_button(label=f"📥 Download {title}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_admin_lms_{lms_id}")
                 
-                # ✅ ADDED: Red block button structure layout loop to target drop commands cleanly
                 with c_actions:
                     if st.button("🗑️ Delete Asset", key=f"del_lms_{lms_id}", use_container_width=True):
                         conn = get_db_connection()
@@ -817,7 +819,6 @@ elif menu == "📤 Export Reports":
 elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
     
-    # Initialize the delete checkbox confirmation state mapping cleanly
     if "p_check_state" not in st.session_state:
         st.session_state["p_check_state"] = False
 
@@ -869,7 +870,6 @@ elif menu == "🚨 System Administration":
             a_body = st.text_area("Announcement Description Body Content:")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
             
-            # Duration Picker Config Selection Options Block
             st.markdown("**📅 Schedule Options:**")
             has_expiry = st.checkbox("Set an expiration date for this post?")
             expiry_date_val = ""
@@ -893,7 +893,6 @@ elif menu == "🚨 System Administration":
                 st.success("📢 Bulletin notice published live successfully!")
                 st.rerun()
 
-        # ✅ Announcement Control Deck List Interface Engine
         st.markdown("---")
         st.subheader("⚙️ Manage Published Bulletins")
         conn = get_db_connection()
@@ -952,7 +951,6 @@ elif menu == "🚨 System Administration":
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
             
-            # Tie checkbox value directly to session state
             p_check = st.checkbox("Confirm permanent account removal deletion.", value=st.session_state["p_check_state"])
             
             if st.button("Permanently Erase Profile", type="primary"):
@@ -965,7 +963,6 @@ elif menu == "🚨 System Administration":
                     conn.commit()
                     
                     st.success("Purged out completely.")
-                    # Automatically uncheck the box for safety on rerun
                     st.session_state["p_check_state"] = False
                     st.rerun()
                 else:
