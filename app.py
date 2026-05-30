@@ -270,7 +270,7 @@ st.markdown("""
 # ==========================================
 if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
-    st.markdown("""
+    st.Sidebar.markdown("""
     <style>
         .user-code-box {
             background-color: #002060 !important;
