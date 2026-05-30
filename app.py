@@ -239,9 +239,22 @@ if st.session_state.get("change_pwd", False):
             st.error("Password cannot be blank.")
     st.stop()
 
-if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
-    for key in list(st.session_state.keys()): del st.session_state[key]
-    st.rerun()
+st.markdown("""
+    <style>
+        /* This removes the hover color change for the sidebar buttons */
+        [data-testid="stSidebar"] button:hover {
+            background-color: #002060 !important; /* Keep it the same as your sidebar color */
+            border-color: #002060 !important;
+            color: #FFFFFF !important;
+        }
+        
+        /* This keeps the button looking solid when clicked */
+        [data-testid="stSidebar"] button:active {
+            background-color: #002060 !important;
+            border-color: #002060 !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
