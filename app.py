@@ -700,7 +700,7 @@ elif menu == "📋 Task Checklist View":
             conn.close()
 
 elif menu == "📚 Rules and Guidelines":
-    st.title("📚 SOP's and Manual")
+    st.title("📚 SOP and Manual")
     st.markdown("---")
     tab_view, tab_upload = st.tabs(["📖 Training Materials Repository", "📤 Upload New Learning Asset"])
     with tab_view:
