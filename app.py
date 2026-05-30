@@ -240,17 +240,15 @@ if st.session_state.get("change_pwd", False):
     st.stop()
 
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
-
     for key in list(st.session_state.keys()): del st.session_state[key]
-
     st.rerun()
     
 st.markdown("""
     <style>
         /* This removes the hover color change for the sidebar buttons */
         [data-testid="stSidebar"] button:hover {
-            background-color: #002060 !important; /* Keep it the same as your sidebar color */
-            border-color: #002060 !important;
+            background-color: #FFFFFF !important; /* Keep it the same as your sidebar color */
+            border-color: #FFFFFF !important;
             color: #FFFFFF !important;
         }
         
