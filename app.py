@@ -57,10 +57,10 @@ st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
         [data-testid="stSidebar"] { background-color: #002060; }
-        [data-testid="stSidebar"] * { color: #000000 !important; }
+        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
         h1, h2, h3 { color: #002060; font-family: sans-serif; }
         .ych-card {
-            background-color: #FFFFFF;
+            background-color: #000000;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.08);
