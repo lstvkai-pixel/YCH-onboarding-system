@@ -185,7 +185,7 @@ for state_key, default_value in [
     ("user_role", None),
     ("change_pwd", False),
     ("p_check_state", False),
-    ("ann_posted_success", False)  # Track announcement notifications cleanly
+    ("ann_posted_success", False)
 ]:
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
@@ -307,8 +307,8 @@ if st.session_state["user_role"] == "Employee":
                         icon_s = "✅ Complete" if comp else "⏳ Pending Processing"
                         st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
 
-        elif emp_menu == "📚 Rules and Guidelines":
-            st.title("📚 SOP and Manual")
+        elif emp_menu == "📚 Library Training center":
+            st.title("📚 Distributed LMS Asset Training Document Library")
             st.markdown("---")
             
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
@@ -458,13 +458,13 @@ if menu == "🏢 Corporate Experience Landing":
                             
                             story = [
                                 Spacer(1, 100),
-                                Paragraph("COMPLETION CERTIFICATE", cert_style),
+                                Paragraph("YCH GROUP GRADUATION CERTIFICATE", cert_style),
                                 Spacer(1, 30),
                                 Paragraph(f"This document proudly certifies that", body_style),
                                 Spacer(1, 15),
                                 Paragraph(f"<b>{name}</b>", cert_style),
                                 Spacer(1, 15),
-                                Paragraph(f"has successfully completed the complete the onboarding track for position <b>{role}</b> inside the <b>{dept}</b> account team framework securely.", body_style),
+                                Paragraph(f"has successfully completed the complete enterprise logistics onboarding track curriculum for position <b>{role}</b> inside the <b>{dept}</b> account team framework securely.", body_style),
                                 Spacer(1, 40),
                                 Paragraph(f"Verified Registration Key: <i>{emp_id}</i> | Date Issued: {datetime.now().strftime('%B %d, %Y')}", body_style),
                                 Spacer(1, 50),
@@ -584,7 +584,7 @@ elif menu == "➕ Add New Employee":
                     # 2. Provision Account Access Ledger
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    # 3. Inject default task matrix framework mapping pipeline loop
+                    # 3. Inject structural roadmap default tasks list mapping loop
                     default_tasks = [
                         ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                         ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -613,6 +613,7 @@ elif menu == "➕ Add New Employee":
                     st.subheader("📲 Send Credentials")
                     wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
                     wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
+                    
                     st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
                     
                 except sqlite3.IntegrityError:
@@ -639,9 +640,7 @@ elif menu == "📋 Task Checklist View":
         
         left_pane, right_pane = st.columns([2, 1])
         with left_pane:
-            left_pane, right_pane = st.columns([2, 1])
-        with left_pane:
-            # ➕ NEW FEATURE: Add Custom Task Form
+            # ➕ FEATURE: Add Custom Task Form
             with st.expander("➕ Add Custom Task to This Employee", expanded=False):
                 with st.form("add_custom_task_form", clear_on_submit=True):
                     new_task_name = st.text_input("Task Name:", placeholder="e.g. Submit BIR Form 2316")
@@ -663,10 +662,32 @@ elif menu == "📋 Task Checklist View":
                             st.success(f"🎉 '{new_task_name}' added to {new_task_phase.split(':')[0]}!")
                             st.rerun()
 
-            # Your existing loop for displaying phases and checkboxes continues below...
             conn = get_db_connection()
             cursor = conn.cursor()
             for step_num, phase_str in enumerate(PHASE_GROUPS, start=1):
+                st.markdown(f"### 📋 {phase_str}")
+                is_locked = False
+                if step_num == 3 and p3_app: is_locked = True
+                if step_num == 4 and p4_app: is_locked = True
+                if step_num == 5 and p5_app: is_locked = True
+                if is_locked: st.warning("🔒 This phase has been locked by management sign-off approval.")
+                cursor.execute("SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (sel_id, phase_str))
+                rows = cursor.fetchall()
+                for t_id, t_name, team, comp in rows:
+                    c1, c2 = st.columns([4, 1])
+                    with c1:
+                        checked = st.checkbox(f"**{t_name}** `[{team}]`", value=bool(comp), key=f"t_line_{t_id}", disabled=is_locked)
+                        if checked != bool(comp) and not is_locked:
+                            cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (1 if checked else 0, t_id))
+                            conn.commit()
+                            st.rerun()
+                    with c2:
+                        if st.button("🗑️ Drop", key=f"drop_{t_id}", disabled=is_locked):
+                            cursor.execute("DELETE FROM tasks WHERE id = ?", (t_id,))
+                            conn.commit()
+                            st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
+            conn.close()
             
         with right_pane:
             st.subheader("📂 Signed Documents Vault")
@@ -874,9 +895,8 @@ elif menu == "🚨 System Administration":
         
         # ✅ FIXED: Changed clear_on_submit to True so form fields reset blank automatically!
         with st.form("ann_form", clear_on_submit=True):
-            # Added precise key bindings to session state mapping variables
             a_title = st.text_input("Announcement Title Heading:", key="txt_title")
-            a_cat = st.selectbox("Target Classification Group:", ["HR Memorandum", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
+            a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
             a_body = st.text_area("Announcement Description Body Content:", key="txt_body")
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"], key="file_attach")
             
