@@ -274,7 +274,7 @@ if st.session_state["user_role"] == "Employee":
     <style>
         .user-code-box {
             background-color: #002060 !important;
-            color: #FFFFFF !important;
+            color: #002060 !important;
             padding: 10px !important;
             border-radius: 6px !important;
             text-align: center !important;
@@ -284,6 +284,7 @@ if st.session_state["user_role"] == "Employee":
         }
     </style>
 """, unsafe_allow_html=True)
+    
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
     
