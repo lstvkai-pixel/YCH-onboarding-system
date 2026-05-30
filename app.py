@@ -63,7 +63,11 @@ st.markdown("""
             margin-bottom: 15px;
             height: 125px;
         }
-        
+
+        import streamlit as st
+import os
+
+# Put all your CSS here in one block, no hidden characters
 st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
@@ -83,29 +87,20 @@ st.markdown("""
         
         .user-code-box {
             background-color: #FFFFFF !important;
-            color: #002060 !important;
             padding: 10px !important;
             border-radius: 6px !important;
             text-align: center !important;
             font-weight: bold !important;
             margin-bottom: 15px !important;
             border: 1px solid #FFFFFF !important;
+            color: #002060 !important;
         }
-
-        .user-code-box, .user-code-box span, .user-code-box p {
+        
+        .user-code-box span {
             color: #002060 !important;
         }
 
         [data-testid="stSidebar"] button {
-            background-color: #002060 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #002060 !important;
-            box-shadow: none !important;
-        }
-
-        [data-testid="stSidebar"] button:hover,
-        [data-testid="stSidebar"] button:active,
-        [data-testid="stSidebar"] button:focus {
             background-color: #002060 !important;
             color: #FFFFFF !important;
             border: 1px solid #002060 !important;
