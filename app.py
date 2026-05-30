@@ -718,7 +718,7 @@ elif menu == "📚 Training Library":
             asset_title = st.text_input("Module Training Document Title:")
             asset_phase = st.selectbox("Link Material to Target Phase:", PHASE_GROUPS)
             asset_type = st.selectbox("Document Classification Type:", ["SOP PDF", "Work Instruction", "Safety Manual", "Training Video Link"])
-            if st.form_submit_button("Deploy Material to LMS Node") and asset_title != "":
+            if st.form_submit_button("Deploy Training Checklist") and asset_title != "":
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO lms_materials (phase, title, doc_type) VALUES (?, ?, ?)", (asset_phase, asset_title, asset_type))
