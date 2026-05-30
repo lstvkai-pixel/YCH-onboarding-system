@@ -99,7 +99,7 @@ st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
         .ych-card {
-            background-color: #000000;
+            background-color: #FFFFFF;
             border-radius: 8px;
             padding: 18px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
