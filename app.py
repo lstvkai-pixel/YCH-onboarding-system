@@ -315,7 +315,7 @@ if st.session_state["user_role"] == "Employee":
 # ==========================================
 # HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL RUNTIME
 # ==========================================
-# ✅ MODIFIED: Removed "🏅 Certification Center" and "💬 Employee Feedback Portal" from choices configuration array
+# ✅ MODIFIED: Feedback Portal cleanly extracted from the primary navigation hub layout arrays
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
     ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "📤 Export Reports", "🚨 System Administration"]
@@ -561,7 +561,7 @@ elif menu == "➕ Add New Employee":
                     # 2. Provision Account Access Ledger
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    # 3. Inject the complete missing structural roadmap default tasks list mapping loop!
+                    # 3. Inject structural roadmap default tasks list mapping loop
                     default_tasks = [
                         ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                         ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -697,22 +697,6 @@ elif menu == "📋 Task Checklist View":
                     conn.commit()
                     st.rerun()
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
-            st.markdown("<hr>", unsafe_allow_html=True)
-            
-            st.subheader("⏱️ Log Training Hours Audit")
-            with st.form("hours_form", clear_on_submit=True):
-                log_date_picker = st.date_input("Training Session Date Context:")
-                add_c = st.number_input("Add Classroom Hours:", min_value=0, step=1)
-                add_o = st.number_input("Add On-the-Job (OJT) Hours:", min_value=0, step=1)
-                add_s = st.number_input("Add Safety Training Hours:", min_value=0, step=1)
-                add_t = st.number_input("Add Technical Training Hours:", min_value=0, step=1)
-                if st.form_submit_button("Log Hours to Employee File"):
-                    cursor.execute("""
-                        INSERT INTO training_logs (hire_id, log_date, classroom_hours, ojt_hours, safety_hours, technical_hours) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (sel_id, log_date_picker.strftime("%Y-%m-%d"), add_c, add_o, add_s, add_t))
-                    conn.commit()
-                    st.success(f"🎉 Success: Logged {add_c+add_o+add_s+add_t} total training hours for this date context!")
             conn.close()
 
 elif menu == "📚 Learning Center":
@@ -741,6 +725,8 @@ elif menu == "📚 Learning Center":
                 conn.commit()
                 conn.close()
                 st.rerun()
+
+# ✅ REMOVED: The entire "💬 Employee Feedback Portal" management section code has been completely stripped from here
 
 elif menu == "📤 Export Reports":
     st.title("📤 Multi-Roster Extraction & Executive Reports Engine")
