@@ -350,14 +350,6 @@ if st.session_state["user_role"] == "Employee":
                     st.markdown("---")
     st.stop()
 
-# ==========================================
-# HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL RUNTIME
-# ==========================================
-menu = st.sidebar.radio(
-    "NAVIGATION HUB", 
-    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Rules and Guidelines", "📤 Export Reports", "🚨 System Administration"]
-)
-
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
 if menu == "🏢 Corporate Experience Landing":
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h1>", unsafe_allow_html=True)
