@@ -861,7 +861,7 @@ elif menu == "📤 Export Reports":
 
 # --- WORKSPACE 9: SYSTEM ADMINISTRATION CONTROL PANEL ---
 elif menu == "🚨 System Administration":
-    st.title("🚨 Enterprise Control Room & System Administration")
+    st.title("🚨 System Administration")
     
     # ✅ NOTIFICATION FEEDBACK TOAST CHECK
     if st.session_state.get("ann_posted_success", False):
