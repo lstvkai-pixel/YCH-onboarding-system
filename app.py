@@ -239,6 +239,12 @@ if st.session_state.get("change_pwd", False):
             st.error("Password cannot be blank.")
     st.stop()
 
+if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
+
+    for key in list(st.session_state.keys()): del st.session_state[key]
+
+    st.rerun()
+    
 st.markdown("""
     <style>
         /* This removes the hover color change for the sidebar buttons */
