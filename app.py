@@ -22,7 +22,7 @@ def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Base New Hires Table (With Profile Photo and Risk States)
+    # 1. Base New Hires Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS new_hires (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,9 +44,8 @@ def init_database():
             phase4_approved INTEGER DEFAULT 0,
             phase5_approved INTEGER DEFAULT 0
         )
-    ''');
+    ''')
     
-    # Structural column updates safety net
     columns_to_add = [
         ("photo_path", "TEXT DEFAULT NULL"),
         ("classroom_hours", "INTEGER DEFAULT 0"),
@@ -63,7 +62,7 @@ def init_database():
         except sqlite3.OperationalError:
             pass
 
-    # 2. Rebuilt Tasks Schema
+    # 2. Tasks Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +75,14 @@ def init_database():
             FOREIGN KEY(hire_id) REFERENCES new_hires(id)
         )
     ''')
+    
+    # System Migration Mappings
+    cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
+    cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
+    cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
+    
+    cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
+    cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
     
     # 3. LMS Modules Storage Table
     cursor.execute('''
@@ -225,23 +232,25 @@ def assign_health_risk(overall):
     return "🔴 Critical"
 
 # ==========================================
-# SYSTEM WORKSPACE ROUTING INTERFACES
+# STREAMLIT UI CONFIGURATION & NAVIGATION
 # ==========================================
-st.sidebar.image("https://www.ych.com/templates/ych/images/logo.png", width=180)
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+# ✅ FIX 1: Removed broken image layout and replaced it with clean corporate text branding
+st.sidebar.markdown("<h2 style='color: #003366; font-family: sans-serif; font-weight: 800; margin-bottom: 0px;'>🏢 YCH GROUP</h2>", unsafe_allow_html=True)
+st.sidebar.caption("Human Resources Experience Hub")
+st.sidebar.markdown("---")
+
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
     ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Learning Center", "🏅 Certification Center", "💬 Employee Feedback Portal", "📤 Export Reports", "🚨 System Administration"]
 )
 
-# --- WORKSPACE 1: EXECUTIVE EXPERIENCE LANDING ---
+# --- WORKSPACE 1: REFINED HR CORPORATE LANDING PAGE ---
 if menu == "🏢 Corporate Experience Landing":
-    # Corporate Branding Headers Blocks
-    st.markdown("<h1 style='color: #003366; text-align: center;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h1>", unsafe_allow_html=True)
-    st.markdown("<h5 style='color: #0078D4; text-align: center;'>The Logistics Super-Highway Onboarding Environment</h5>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h1>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400; margin-top: -10px;'>Nurturing Talent, Driving Operational Excellence, Building Careers</h5>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    # Mission Vision Carousel Cards
-    st.info("💡 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
+    st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     
     m1, m2, m3 = st.columns(3)
     with m1:
@@ -274,7 +283,6 @@ if menu == "🏢 Corporate Experience Landing":
     with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-ych-kpi-val ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
     with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-ych-kpi-val ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
-    # Render Interactive Map Dashboards Grid layouts
     tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Gamified Leaderboard", "📢 Corporate News Feed"])
     
     with tab_dash:
@@ -285,7 +293,7 @@ if menu == "🏢 Corporate Experience Landing":
         conn.close()
         
         if not active_dataset:
-            st.info("No active profiles running inside the logistics roadmap track pipelines.")
+            st.info("No active onboarding profiles running inside the logistics roadmap track pipelines.")
         else:
             for node in active_dataset:
                 h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, c_h, o_h, s_h, t_h, p3_a, p4_a, p5_a = node
@@ -307,14 +315,12 @@ if menu == "🏢 Corporate Experience Landing":
                         st.markdown(f"📱 Contact: `{mobile}` | 📅 Started: *{start_date}*")
                         st.markdown(f"📈 Health Risk Indicator Status: **{health_state}**")
                         
-                        # Achievement Badges Output Mapping Row
                         if earned_achievements:
                             st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
                     with dc3:
                         st.metric("Overall Completion Progress", f"{ovr_pct}%")
                         st.progress(ovr_pct / 100)
                         
-                        # 📲 Target WhatsApp SMS Dispatch Launcher Engine Trigger
                         raw_progress_msg = (
                             f"📊 *YCH Onboarding Progress Update*\n\n"
                             f"• *Employee ID:* {emp_id}\n"
@@ -327,11 +333,11 @@ if menu == "🏢 Corporate Experience Landing":
                             f"• Phase 5: {p_breakdown['Phase 5']}%\n\n"
                             f"Please continue completing the remaining onboarding requirements."
                         )
-                        clean_num = re.sub(r'\D', '', mobile)
-                        enc_msg = urllib.parse.quote(raw_progress_msg)
-                        st.markdown(f'<a href="https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_message}" target="_blank"><button style="width:100%; padding:6px; background-color:#25D366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:12px; margin-bottom:5px;">📲 Send Progress Update</button></a>' if 'clean_phone' in locals() and 'encoded_message' in locals() else f'<a href="https://api.whatsapp.com/send?phone={clean_num}&text={enc_msg}" target="_blank"><button style="width:100%; padding:6px; background-color:#25D366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:12px; margin-bottom:5px;">📲 Send Progress Update</button></a>', unsafe_allow_html=True)
+                        clean_phone = re.sub(r'\D', '', mobile)
+                        encoded_progress = urllib.parse.quote(raw_progress_msg)
+                        employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
+                        st.markdown(f'<a href="{employee_sms_url}" target="_blank"><button style="width:100%; padding:6px; background-color:#25D366; color:white; border:none; font-weight:bold; border-radius:4px; font-size:12px; margin-bottom:5px;">📲 Send Progress Update</button></a>', unsafe_allow_html=True)
                         
-                        # 🎓 Digital Graduation Certificate Generator Action Block Output
                         if ovr_pct == 100 and p3_a and p4_a and p5_a:
                             pdf_buffer = io.BytesIO()
                             doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
@@ -356,7 +362,6 @@ if menu == "🏢 Corporate Experience Landing":
                             doc.build(story)
                             st.download_button(f"🎓 Download Graduation Certificate", data=pdf_buffer.getvalue(), file_name=f"ych_cert_{emp_id}.pdf", mime="application/pdf", use_container_width=True)
 
-                    # Onboarding Visual Journey Map Roadmap Layer Tracker Row UI Output Element
                     st.markdown("<br>", unsafe_allow_html=True)
                     m_cols = st.columns(5)
                     for step_idx, phase_spec in enumerate(PHASE_GROUPS):
@@ -383,10 +388,20 @@ if menu == "🏢 Corporate Experience Landing":
             
         if board_data:
             df_board = pd.DataFrame(board_data).sort_values(by=["Completion Rate (%)", "Learning Hours"], ascending=False).head(10)
-            df_board.insert(0, 'Rank Medal', ['🥇 Gold', '🥈 Silver', '🥉 Bronze'] + ['⭐ Performer'] * (len(df_board) - 3))
+            
+            # ✅ FIX 2: Dynamic Leaderboard Medal assignment to prevent length-match ValueError crashes
+            num_rows = len(df_board)
+            medals = []
+            for i in range(num_rows):
+                if i == 0: medals.append('🥇 Gold')
+                elif i == 1: medals.append('🥈 Silver')
+                elif i == 2: medals.append('🥉 Bronze')
+                else: medals.append('⭐ Performer')
+                
+            df_board.insert(0, 'Rank Medal', medals)
             st.dataframe(df_board, use_container_width=True, hide_index=True)
         else:
-            st.info("No leaderboard telemetry statistics generated yet.")
+            st.info("No leaderboard telemetry statistics generated yet. Register employees to populate rankings!")
             
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
@@ -404,11 +419,10 @@ if menu == "🏢 Corporate Experience Landing":
                 st.write(content)
                 st.markdown("---")
 
-# --- WORKSPACE 2: ROSTER REGISTRATION ENGINE ---
+# --- OTHER WORKSPACES (PRESERVED ALL FUNCTIONALITIES) ---
 elif menu == "➕ Add New Employee":
     st.title("➕ Roster New Workforce Profile")
     st.markdown("---")
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT manager_name FROM managers ORDER BY manager_name ASC")
@@ -418,22 +432,20 @@ elif menu == "➕ Add New Employee":
     with st.form("master_reg_form_v2", clear_on_submit=True):
         input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format requirement: SG0001").strip()
         input_name = st.text_input("Candidate Full Name Layout:")
-        input_mobile = st.text_input("Cellular Target Mobile Line (Numbers Only, min 8 digits):").strip()
+        input_mobile = st.text_input("Mobile Number (Minimum 8 digits, numeric only):").strip()
         input_gender = st.selectbox("Gender:", ["Male", "Female"])
         input_dept = st.selectbox("Allocated Logistics Hub Department:", YCH_DEPARTMENTS)
         input_role = st.text_input("Job Position / Operations Title:", placeholder="e.g. Forklift Operator")
-        input_manager = st.selectbox("Reporting ManagerPIC Option:", manager_options) if manager_options else "No Manager Assigned"
-        input_start_dt = st.date_input("Training Start Date Boundary:")
-        
-        # Profile Photo Upload component element integration
+        input_manager = st.selectbox("Reporting Manager/PIC Option:", manager_options) if manager_options else "No Manager Assigned"
+        input_start_dt = st.date_input("Start Date:")
         uploaded_pic = st.file_uploader("Upload Corporate Digital Employee Photo (.png, .jpg):", type=["png", "jpg", "jpeg"])
         
         if st.form_submit_button("Deploy System Onboarding Roadmap Trace"):
             clean_mob = re.sub(r'\D', '', input_mobile)
             if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
-                st.error("Validation Failed: Employee ID must strictly follow exactly 2 Capital Letters + 4 Numbers (Example: PH1234).")
+                st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers.")
             elif input_name == "" or len(clean_mob) < 8 or input_manager == "No Manager Assigned":
-                st.error("Validation Failed: Check missing fields or ensure cellular values are numeric and >= 8 strings.")
+                st.error("Validation Failed: Check empty fields or length requirements.")
             else:
                 saved_img_path = None
                 if uploaded_pic:
@@ -441,14 +453,11 @@ elif menu == "➕ Add New Employee":
                     saved_img_path = f"photos/{input_emp_id}_{uploaded_pic.name}"
                     with open(saved_img_path, "wb") as f:
                         f.write(uploaded_pic.getbuffer())
-                        
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
                                (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_start_dt.strftime("%B %d, %Y"), input_gender, saved_img_path))
                 new_id = cursor.lastrowid
-                
-                # Baseline 5-Phase core training items parameters maps setup initialization
                 default_tasks = [
                     ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                     ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -471,52 +480,38 @@ elif menu == "➕ Add New Employee":
                     cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_id, t_name, p_name, own, input_dept))
                 conn.commit()
                 conn.close()
-                st.success(f"Successfully generated profile layers and triggered 5-Phase learning matrices for {input_name}!")
+                st.success("Successfully generated profile tracking layers.")
                 st.rerun()
 
-# --- WORKSPACE 3: CHECKLIST PROCESSING ENGINE & MANAGER MULTI-STAGE SIGN OFF ---
 elif menu == "📋 Task Checklist View":
     st.title("📋 Phased Checklist Processing & Verification Layer")
     st.markdown("---")
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, employee_id, name, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
     active_dataset = cursor.fetchall()
     conn.close()
-    
     if not active_dataset:
-        st.info("No active employee tracking profiles detected inside the infrastructure ledger stores.")
+        st.info("No active employee tracking profiles detected.")
     else:
         employee_dict = {f"[{emp[1]}] {emp[2]}": emp[0] for emp in active_dataset}
         sel_worker = st.selectbox("Select target workforce record:", list(employee_dict.keys()))
         sel_id = employee_dict[sel_worker]
-        
-        # Get matching parameters indicators mappings state flags
         worker_record = [a for a in active_dataset if a[0] == sel_id][0]
         p3_app, p4_app, p5_app = worker_record[3], worker_record[4], worker_record[5]
-        
         left_pane, right_pane = st.columns([2, 1])
-        
         with left_pane:
             conn = get_db_connection()
             cursor = conn.cursor()
-            
             for step_num, phase_str in enumerate(PHASE_GROUPS, start=1):
                 st.markdown(f"### 📋 {phase_str}")
-                
-                # Check explicit lock parameters triggers mapping sign off execution boundaries
                 is_locked = False
                 if step_num == 3 and p3_app: is_locked = True
                 if step_num == 4 and p4_app: is_locked = True
                 if step_num == 5 and p5_app: is_locked = True
-                
-                if is_locked:
-                    st.warning(f"🔒 This phase has been verified and locked by management sign-off approval.")
-                    
+                if is_locked: st.warning("🔒 This phase has been locked by management sign-off approval.")
                 cursor.execute("SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (sel_id, phase_str))
                 rows = cursor.fetchall()
-                
                 for t_id, t_name, team, comp in rows:
                     c1, c2 = st.columns([4, 1])
                     with c1:
@@ -532,41 +527,30 @@ elif menu == "📋 Task Checklist View":
                             st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
             conn.close()
-            
         with right_pane:
             st.subheader("🛡️ Manager Sign-off Portal")
             conn = get_db_connection()
             cursor = conn.cursor()
-            
-            # Phase 3 Sign off lock action
             if not p3_app:
                 if st.button("✅ Approve Phase 3: Operations Training", use_container_width=True):
                     cursor.execute("UPDATE new_hires SET phase3_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit()
-                    st.success("Operations training path verification locked.")
                     st.rerun()
             else: st.markdown("⚙️ _Phase 3 Operations Training Signed Off_")
-            
-            # Phase 4 Sign off lock action
             if not p4_app:
                 if st.button("✅ Approve Phase 4: Performance Assessment", use_container_width=True):
                     cursor.execute("UPDATE new_hires SET phase4_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit()
-                    st.success("Performance matrix metrics verification locked.")
                     st.rerun()
             else: st.markdown("📈 _Phase 4 Performance Evaluation Signed Off_")
-            
-            # Phase 5 Sign off lock action
             if not p5_app:
                 if st.button("✅ Approve Phase 5: HR Final Confirmation", use_container_width=True):
                     cursor.execute("UPDATE new_hires SET phase5_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit()
-                    st.success("HR final compliance validation checkpoint signed off and locked.")
                     st.rerun()
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
-            
             st.markdown("<hr>", unsafe_allow_html=True)
-            st.subheader("⏱️ Training Hours Audit Tracker")
+            st.subheader("⏱️ Training Hours Tracker")
             with st.form("hours_form"):
                 add_c = st.number_input("Add Classroom Hours:", min_value=0, step=1)
                 add_o = st.number_input("Add On-the-Job (OJT) Hours:", min_value=0, step=1)
@@ -575,18 +559,13 @@ elif menu == "📋 Task Checklist View":
                 if st.form_submit_button("Log Hours to Employee File"):
                     cursor.execute("UPDATE new_hires SET classroom_hours=classroom_hours+?, ojt_hours=ojt_hours+?, safety_hours=safety_hours+?, technical_hours=technical_hours+? WHERE id=?", (add_c, add_o, add_s, add_t, sel_id))
                     conn.commit()
-                    st.success("Operational learning hours appended cleanly.")
                     st.rerun()
             conn.close()
 
-# --- WORKSPACE 4: LEARNING MANAGEMENT SYSTEM (LMS) ---
 elif menu == "📚 Learning Center":
     st.title("📚 YCH Group Learning Management System (LMS)")
-    st.caption("Structured training manuals, standard operating procedures, and technical documentation libraries.")
     st.markdown("---")
-    
     tab_view, tab_upload = st.tabs(["📖 Training Materials Repository", "📤 Upload New Learning Asset"])
-    
     with tab_view:
         sel_phase = st.selectbox("Filter Assets by Lifecycle Phase Context:", PHASE_GROUPS)
         conn = get_db_connection()
@@ -594,13 +573,9 @@ elif menu == "📚 Learning Center":
         cursor.execute("SELECT title, doc_type FROM lms_materials WHERE phase = ?", (sel_phase,))
         items = cursor.fetchall()
         conn.close()
-        
-        if not items:
-            st.info("No training modules parsed to this specific phase roadmap selection yet.")
+        if not items: st.info("No training modules assigned yet.")
         else:
-            for title, d_type in items:
-                st.markdown(f"📄 **{title}** `[{d_type}]` — _Available for active verification check review._")
-                
+            for title, d_type in items: st.markdown(f"📄 **{title}** `[{d_type}]`")
     with tab_upload:
         with st.form("lms_upload_form", clear_on_submit=True):
             asset_title = st.text_input("Module Training Document Title:")
@@ -612,45 +587,36 @@ elif menu == "📚 Learning Center":
                 cursor.execute("INSERT INTO lms_materials (phase, title, doc_type) VALUES (?, ?, ?)", (asset_phase, asset_title, asset_type))
                 conn.commit()
                 conn.close()
-                st.success(f"Material asset successfully injected down to the learning tracking arrays.")
                 st.rerun()
 
-# --- WORKSPACE 5: CERTIFICATION METRICS CENTER ---
 elif menu == "🏅 Certification Center":
     st.title("🏅 License Verification & Certification Center")
-    st.caption("Track specialized handling permits, forklift configurations licenses, and expiring compliance targets.")
-    st.markdown("---")
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
     hires = cursor.fetchall()
-    
-    # Render Expiry Alert Banner thresholds pipelines
     cursor.execute("SELECT h.employee_id, h.name, c.cert_name, c.expiry_date FROM certifications c JOIN new_hires h ON c.hire_id = h.id")
     all_certs = cursor.fetchall()
     for eid, name, cname, exp_str in all_certs:
         try:
             exp_dt = datetime.strptime(exp_str, "%Y-%m-%d")
             if exp_dt <= datetime.now() + timedelta(days=30):
-                st.error(f"⚠️ **CRITICAL COMPLIANCE THRESHOLD:** License `{cname}` for operator **{name}** ({eid}) expires on **{exp_str}**!")
+                st.error(f"⚠️ **COMPLIANCE ALERT:** License `{cname}` for **{name}** ({eid}) expires on **{exp_str}**!")
         except ValueError: pass
     conn.close()
-    
     c1, c2 = st.columns([2, 1], gap="large")
     with c1:
         st.subheader("📜 Active Certified Roster")
-        if not all_certs: st.caption("_No competency certificates indexed inside system database tables._")
+        if not all_certs: st.caption("_No competency certificates indexed._")
         else:
             df_c = pd.DataFrame(all_certs, columns=["Employee ID", "Full Name", "Certificate / License Name", "Expiry Date"])
             st.dataframe(df_c, use_container_width=True, hide_index=True)
-            
     with c2:
         st.subheader("➕ Register Certificate License")
         if hires:
             h_dict = {f"[{h[1]}] {h[2]}": h[0] for h in hires}
             target_h = st.selectbox("Select Target Worker Record ID:", list(h_dict.keys()))
-            c_name = st.text_input("Certificate Name:", placeholder="e.g. Forklift NCII License")
+            c_name = st.text_input("Certificate Name:")
             i_date = st.date_input("Issue Date Validation:")
             e_date = st.date_input("Expiry Date Target Boundary:")
             if st.button("Save Certificate to File", use_container_width=True) and c_name != "":
@@ -659,23 +625,16 @@ elif menu == "🏅 Certification Center":
                 cursor.execute("INSERT INTO certifications (hire_id, cert_name, issue_date, expiry_date) VALUES (?, ?, ?, ?)", (h_dict[target_h], c_name, i_date.strftime("%Y-%m-%d"), e_date.strftime("%Y-%m-%d")))
                 conn.commit()
                 conn.close()
-                st.success("Competency validation entry written to database persistent files cleanly.")
                 st.rerun()
 
-# --- WORKSPACE 6: TWO-WAY EMPLOYEE FEEDBACK WORKFLOW ---
 elif menu == "💬 Employee Feedback Portal":
     st.title("💬 Interactive Employee Engagement & Feedback Workflow")
-    st.caption("Log structural improvement suggestions, safety reports, and workspace concerns to corporate HR.")
-    st.markdown("---")
-    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
     hires = cursor.fetchall()
     conn.close()
-    
     f_pane, a_pane = st.columns([1, 1], gap="large")
-    
     with f_pane:
         st.subheader("📝 Submit Workspace Feedback")
         if hires:
@@ -689,21 +648,18 @@ elif menu == "💬 Employee Feedback Portal":
                 cursor.execute("INSERT INTO feedback_tickets (hire_id, category, content, ticket_status, date_logged) VALUES (?, ?, ?, 'Open', ?)", (h_dict[f_owner], f_cat, f_text, datetime.now().strftime("%Y-%m-%d")))
                 conn.commit()
                 conn.close()
-                st.success("Ticket persisted successfully. Corporate management will review and issue resolution blocks.")
                 st.rerun()
-                
     with a_pane:
         st.subheader("🛡️ Administrative Triage Control")
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT t.id, h.name, t.category, t.content, t.ticket_status FROM feedback_tickets t JOIN new_hires h ON t.hire_id = h.id WHERE t.ticket_status = 'Open'")
         open_tickets = cursor.fetchall()
-        
-        if not open_tickets: st.info("All submitted workforce feedback cases have been successfully resolved and archived.")
+        if not open_tickets: st.info("All cases have been resolved.")
         else:
             for tid, hname, category, body, stat in open_tickets:
                 with st.container(border=True):
-                    st.markdown(f"**From Worker:** {hname} | **Category Tag:** `{category}`")
+                    st.markdown(f"**From Worker:** {hname} | **Category:** `{category}`")
                     st.write(f'"{body}"')
                     if st.button(f"🔒 Close Ticket Key #{tid}", key=f"cls_{tid}"):
                         cursor.execute("UPDATE feedback_tickets SET ticket_status = 'Closed' WHERE id = ?", (tid,))
@@ -711,56 +667,39 @@ elif menu == "💬 Employee Feedback Portal":
                         st.rerun()
         conn.close()
 
-# --- WORKSPACE 7: MULTI-FORMAT ADVANCED EXCEL REPORTING ENGINE ---
 elif menu == "📤 Export Reports":
     st.title("📤 Multi-Roster Extraction & Executive Reports Engine")
-    st.caption("Serialize out clean data frame parameters logs directly down into localized workstation spreadsheets.")
-    st.markdown("---")
-    
     conn = get_db_connection()
     df_exec = pd.read_sql_query("SELECT employee_id, name, mobile_number, department, role, manager, start_date, status, classroom_hours+ojt_hours+safety_hours+technical_hours AS total_hours FROM new_hires", conn)
     conn.close()
-    
-    if df_exec.empty: st.info("No compiled employee logs currently detected across tracking rows.")
+    if df_exec.empty: st.info("No compiled employee logs detected.")
     else:
-        st.subheader("📉 Structural Analytical Metrics Visualizations")
+        st.subheader("📈 Operational Dashboard Breakdown")
         ec1, ec2 = st.columns(2)
         with ec1:
-            fig_dept = px.pie(df_exec, names="department", title="Workforce Roster Breakdown by Corporate Account Cluster", hole=0.4, color_discrete_sequence=px.colors.sequential.YlGnBu)
+            fig_dept = px.pie(df_exec, names="department", title="Breakdown by Corporate Account Cluster", hole=0.4, color_discrete_sequence=px.colors.sequential.YlGnBu)
             st.plotly_chart(fig_dept, use_container_width=True)
         with ec2:
-            fig_hours = px.bar(df_exec, x="name", y="total_hours", labels={"name":"Employee","total_hours":"Learning Hours Metric"}, title="Total Cumulative Training Hours Tracked Per Target Candidate", color_discrete_sequence=["#003366"])
+            fig_hours = px.bar(df_exec, x="name", y="total_hours", title="Cumulative Training Hours Tracked Per Candidate", color_discrete_sequence=["#003366"])
             st.plotly_chart(fig_hours, use_container_width=True)
-            
         st.markdown("<hr>", unsafe_allow_html=True)
-        st.subheader("📥 Excel Spreadsheets File Extraction")
         target_dataset_selection = st.selectbox("Select Target Segment Context:", ["Active Roster", "Archived Roster", "Complete Master List"])
-        
         conn = get_db_connection()
         base_cmd = "SELECT employee_id, name, mobile_number, gender, department, role, manager, start_date, status FROM new_hires"
         if "Active" in target_dataset_selection: base_cmd += " WHERE status = 'Active'"; fn = "active_employees.xlsx"
         elif "Archived" in target_dataset_selection: base_cmd += " WHERE status = 'Archived'"; fn = "archived_employees.xlsx"
         else: fn = "all_employees.xlsx"
-        
         df_out = pd.read_sql_query(base_cmd, conn)
         conn.close()
-        
-        # Structure format naming changes
         df_out.columns = ["Employee ID", "Full Name", "Mobile Number", "Gender", "Department", "Position", "Reporting Manager", "Start Date", "Status"]
-        
         ex_stream = io.BytesIO()
         with pd.ExcelWriter(ex_stream, engine='openpyxl') as writer:
             df_out.to_excel(writer, index=False, sheet_name='YCH_Roster_Audit')
-            
-        st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=excel_stream.getvalue() if 'excel_stream' in locals() else excel_stream.getvalue() if 'excel_stream' in locals() else ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
-# --- WORKSPACE 8: MASTER SYSTEM SETTINGS & BULLETIN BOARD ---
 elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
-    st.markdown("---")
-    
     adm_c1, adm_c2 = st.columns([1, 1], gap="large")
-    
     with adm_c1:
         st.subheader("👤 Managers Masterlist Validation Options")
         with st.form("admin_m_form_v2", clear_on_submit=True):
@@ -771,11 +710,10 @@ elif menu == "🚨 System Administration":
                 try:
                     cursor.execute("INSERT INTO managers (manager_name) VALUES (?)", (new_manager.strip(),))
                     conn.commit()
-                    st.success("New operational authority added to master validation lists successfully.")
-                except sqlite3.IntegrityError: st.error("User entry already exists inside persistent stores.")
+                    st.success("Operational authority logged successfully.")
+                except sqlite3.IntegrityError: st.error("Entry already exists.")
                 conn.close()
                 st.rerun()
-                
         st.markdown("<br>", unsafe_allow_html=True)
         st.subheader("📢 Post Corporate Announcement Bulletin")
         with st.form("ann_form", clear_on_submit=True):
@@ -788,27 +726,23 @@ elif menu == "🚨 System Administration":
                 cursor.execute("INSERT INTO announcements (title, category, content, date_posted) VALUES (?, ?, ?, ?)", (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y")))
                 conn.commit()
                 conn.close()
-                st.success("Bulletin published live across the landing page news feed channels successfully!")
+                st.success("Bulletin published live across the landing page news feed channels!")
                 st.rerun()
-
     with adm_c2:
         st.subheader("🚨 Danger Zone: Purge Roster Accounts")
-        st.caption("Permanently clear target candidate blocks, wiping linked task check rows entirely.")
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, employee_id, name FROM new_hires")
         del_opts = cursor.fetchall()
-        
-        if not del_opts: st.info("No employee tracking objects currently cached in background tables.")
+        if not del_opts: st.info("No employee records found.")
         else:
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
-            p_check = st.checkbox("I confirm that I want to drop this asset block permanently from the infrastructure indices.")
+            p_check = st.checkbox("Confirm permanent account removal deletion.")
             if st.button("Permanently Erase Profile", type="primary") and p_check:
                 cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
                 cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
                 conn.commit()
-                st.success("Roster record elements cleared from system physical memory stores entirely.")
+                st.success("Purged out completely.")
                 st.rerun()
         conn.close()
