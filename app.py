@@ -42,7 +42,7 @@ def init_database():
         )
     ''')
 
-    # 2. Secure Accounts Ledger Table (Drives Employee Login Experience)
+    # 2. Secure Accounts Ledger Table (Drives Dual Interface Experience)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,8 +52,8 @@ def init_database():
         )
     ''')
     
-    # Inject an absolute default master admin employer handle account for initialization
-    cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type) VALUES ('ADMIN', 'YCHADMIN', 'Employer')")
+    # ✅ FIXED DEFAULT: Auto-provisions Employer username to 'HR0001' with password 'YCHADMIN'
+    cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type) VALUES ('HR0001', 'YCHADMIN', 'Employer')")
     
     # 3. Detailed Historical Training Hours Table
     cursor.execute('''
@@ -151,7 +151,7 @@ def init_database():
         )
     ''')
     
-    # Structural Migrations Cleanups
+    # Clean system alignment data migrations maps
     cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
@@ -279,19 +279,18 @@ if "authenticated" not in st.session_state:
     st.session_state["user_role"] = None
 
 if not st.session_state["authenticated"]:
-    # Render stylized HR authentication card landing pane
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
     st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding, LMS & Compliance Validation Portal</h5>", unsafe_allow_html=True)
     
     with st.container(border=True):
         st.subheader("🔑 Identity Secure Access Sign-In")
-        login_user = st.text_input("User Employee ID / Username ID:").strip()
+        login_user = st.text_input("User Employee ID / Username ID:").strip().upper()
         login_pass = st.text_input("Account Access Password:", type="password")
         
         if st.button("Authorize Portal Entry", use_container_width=True):
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AND password = ?", (login_user, login_pass))
+            cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AppAND password = ?", (login_user, login_pass)) if 'AppAND' in locals() else cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AND password = ?", (login_user, login_pass))
             found_acct = cursor.fetchone()
             conn.close()
             
@@ -302,10 +301,9 @@ if not st.session_state["authenticated"]:
                 st.success("Access tokens granted. Directing to assigned workspace nodes...")
                 st.rerun()
             else:
-                st.error("Authentication Intercepted: Invalid structural username or password provided.")
+                st.error("Authentication Intercepted: Invalid username or password provided.")
     st.stop()
 
-# Logout execution button hook on sidebar canvas top
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     st.session_state["authenticated"] = False
     st.session_state["username"] = None
@@ -322,7 +320,6 @@ if st.session_state["user_role"] == "Employee":
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center", "💬 Submit Feedback Report"])
     
-    # Connect directly to tracking objects belonging to this user handle context string
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE UPPER(employee_id) = ?", (st.session_state["username"],))
@@ -339,8 +336,7 @@ if st.session_state["user_role"] == "Employee":
         earned_achievements = evaluate_achievements(h_id, ovr_pct, p_breakdown, total_h)
         
         if emp_menu == "📋 My Onboarding Journey Map":
-            st.title("📋 My Professional Onboarding Experience Roadmap")
-            st.caption("Track your personal 5-Phase structural milestone checkpoints and technical progress records live.")
+            st.title("📋 My Onboarding Experience Journey Roadmap")
             st.markdown("---")
             
             with st.container(border=True):
@@ -352,13 +348,14 @@ if st.session_state["user_role"] == "Employee":
                     st.subheader(f"Welcome, {name}!")
                     st.markdown(f"🆔 **Employee ID:** `{st.session_state['username']}` | 💼 **Position Role:** `{role}`")
                     st.markdown(f"🏢 **Assigned Department:** `{dept}` | 👤 **Reporting Manager PIC:** `{manager}`")
-                    st.markdown(f"📈 **Track Journey Status:** {health_state} | ⏱️ **Total Learning Hours Logged:** `{total_h} Hours`")
+                    st.markdown(f"📈 **Onboarding Status Health:** {health_state} | ⏱️ **Total Learning Hours Logged:** `{total_h} Hours`")
                     
                     if earned_achievements:
                         st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("🛣️ Onboarding Visual Journey Tracks Progression Map")
+            st.subheader("🛣px Onboarding Visual Journey Tracks Progression Map") if 'st' in locals() and hasattr(st, 'markdown') else None
+            st.markdown("### Onboarding Journey Track Progress Map")
             m_cols = st.columns(5)
             for step_idx, phase_spec in enumerate(PHASE_GROUPS):
                 p_code = phase_spec.split(":")[0]
@@ -384,7 +381,6 @@ if st.session_state["user_role"] == "Employee":
 
         elif emp_menu == "📚 Library Training center":
             st.title("📚 Distributed LMS Asset Training Document Library")
-            st.caption("Review required Standard Operating Procedures (SOPs), manuals, and work guides matching your onboarding roadmap constraints.")
             st.markdown("---")
             
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
@@ -402,7 +398,6 @@ if st.session_state["user_role"] == "Employee":
 
         elif emp_menu == "💬 Submit Feedback Report":
             st.title("💬 Two-Way HR Engagement Feedback Ticket System")
-            st.caption("File structural workplace suggestions, concern descriptions, or improvement data lines straight to HRIS management reviews.")
             st.markdown("---")
             
             with st.form("emp_private_feedback", clear_on_submit=True):
@@ -416,7 +411,7 @@ if st.session_state["user_role"] == "Employee":
                         conn.commit()
                         conn.close()
                         st.success("Feedback filed cleanly. Corporate personnel teams will process resolution parameters.")
-                    else: st.error("Ticket description cannot be empty strings bounds.")
+                    else: st.error("Ticket description cannot be empty.")
     st.stop()
 
 # ==========================================
@@ -630,7 +625,7 @@ if menu == "🏢 Corporate Experience Landing":
                         st.download_button(label=f"📎 Download Attached Memo Document File ({os.path.basename(f_path)})", data=b_stream.read(), file_name=os.path.basename(f_path), key=f"dl_ann_{dt}_{title}")
                 st.markdown("---")
 
-# --- WORKSPACE 2: ROSTER REGISTRATION ENGINE (AUTO CREATES USER ACCOUNTS) ---
+# --- WORKSPACE 2: EMPLOYEE REGISTRATION ---
 elif menu == "➕ Add New Employee":
     st.title("➕ Roster New Workforce Profile")
     st.markdown("---")
@@ -656,7 +651,7 @@ elif menu == "➕ Add New Employee":
             if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
                 st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers (Example: PH1234).")
             elif input_name == "" or len(clean_mob) < 8 or input_manager == "No Manager Assigned":
-                st.error("Validation Failed: Check missing fields or criteria.")
+                st.error("Validation Failed: Check missing fields or length requirements.")
             else:
                 saved_img_path = None
                 if uploaded_pic:
@@ -667,12 +662,10 @@ elif menu == "➕ Add New Employee":
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
-                    # Save Employee Profile
                     cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
                                    (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, saved_img_path))
-                    new_hire_db_id = cursor.lastrowid
+                    new_hire_id = cursor.lastrowid
                     
-                    # ✅ ENHANCEMENT: Auto-provision matching User Access Credentials block
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type) VALUES (?, 'YCH1234', 'Employee')", (input_emp_id,))
                     
                     default_tasks = [
@@ -696,9 +689,9 @@ elif menu == "➕ Add New Employee":
                     for t_name, p_name, own in default_tasks:
                         cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_hire_id, t_name, p_name, own, input_dept))
                     conn.commit()
-                    st.success(f"🎉 Success: Created employee roadmap profile and auto-provisioned user credentials! Default Password is: 'YCH1234'")
+                    st.success(f"🎉 Success: Created profile and auto-provisioned login! Default password is: 'YCH1234'")
                 except sqlite3.IntegrityError:
-                    st.error("Conflict Error: That Employee ID Number is already registered in user accounts stores.")
+                    st.error("Conflict Error: That Employee ID Number is already registered.")
                 conn.close()
 
 # --- WORKSPACE 3: CHECKLIST VIEW ---
@@ -997,7 +990,6 @@ elif menu == "🚨 System Administration":
                 st.success("📢 Bulletin notice published live successfully!")
                 st.rerun()
     with adm_c2:
-        # ✅ NEW ENHANCEMENT: Employer utility to override/change credentials password for any Employee ID
         st.subheader("🔑 Employee Password Override Control Panel")
         with st.form("password_reset_form", clear_on_submit=True):
             target_reset_id = st.text_input("Target Employee ID to Override (e.g., SG0002):").strip().upper()
@@ -1031,7 +1023,6 @@ elif menu == "🚨 System Administration":
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
             p_check = st.checkbox("Confirm permanent account removal deletion.")
             if st.button("Permanently Erase Profile", type="primary") and p_check:
-                # Purge from hires, tasks, and accounts ledger
                 cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
                 tgt_emp_code = cursor.fetchone()[0]
                 cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
