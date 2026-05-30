@@ -60,7 +60,7 @@ def init_database():
         )
     ''')
     
-    # System Migration: Auto-convert old Group text tags to clean Phase text layout
+    # System Migration Mappings
     cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
@@ -88,7 +88,7 @@ YCH_DEPARTMENTS = [
     "Ops LKK", "Ops 3M_Tech", "Ops 3M_Odessy", "Ops Philip_PH", "Ops Philip_HS"
 ]
 
-AVAILABLE_TEAMS = ["HR Team", "Security Team", "QA&EHS Team"]
+AVAILABLE_TEAMS = ["HR Team", "Security Team", "QA&EHS Team", "Ops Team"]
 
 PHASE_GROUPS = [
     "Phase 1: Pre-boarding Checklist",
@@ -143,9 +143,10 @@ st.sidebar.title("🏢 YCH_HR Workspace")
 st.sidebar.caption("Logistics Roster Management Platform")
 st.sidebar.markdown("---")
 
+# ✅ FIXED RE-ORDERED SEQUENCE MAPPING: Arranged radio list precisely as requested
 menu = st.sidebar.radio(
     "WORKSPACE MENU", 
-    ["📊 New Hires Dashboard", "🗃️ Archived Roster", "📋 Task Checklist View", "➕ Add New Employee", "📤 Export Reports", "🚨 System Administration"]
+    ["📊 New Hires Dashboard", "➕ Add New Employee", "📋 Task Checklist View", "🗃️ Archived Roster", "📤 Export Reports", "🚨 System Administration"]
 )
 
 # --- VIEW 1: ACTIVE DASHBOARD ---
@@ -254,96 +255,7 @@ if menu == "📊 New Hires Dashboard":
                         st.progress(p_rate / 100)
     conn.close()
 
-# --- VIEW 2: ARCHIVED ROSTER ---
-elif menu == "🗃️ Archived Roster":
-    st.title("🗃️ Archived Onboarding Records")
-    st.caption("Historically compiled read-only database logs of verified operational assets.")
-    st.markdown("---")
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, mobile_number, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Archived'")
-    archived_hires = cursor.fetchall()
-    
-    if not archived_hires:
-        st.info("No archived records found.")
-    else:
-        cols = st.columns(3)
-        for idx, (h_id, emp_id, mobile, name, role, dept, manager, start_date, gender) in enumerate(archived_hires):
-            gender_icon = "👨" if gender == "Male" else "👩"
-            with cols[idx % 3]:
-                with st.container(border=True):
-                    st.subheader(f"{gender_icon} {name} (Archived)")
-                    st.markdown(f"🆔 **Employee ID:** `{emp_id}` | 📱 **Mobile:** `{mobile}`")
-                    st.markdown(f"🏢 **Department:** `{dept}`")
-                    st.markdown(f"💼 **Position:** `{role}`")
-                    st.write(f"**Reporting To:** {manager}")
-                    st.markdown("---")
-                    st.success("💯 100% Onboarding Verification Complete")
-                    
-                    if st.button("⏪ Restore to Active Dashboard", key=f"restore_btn_{h_id}", use_container_width=True):
-                        cursor.execute("UPDATE new_hires SET status = 'Active' WHERE id = ?", (h_id,))
-                        conn.commit()
-                        st.rerun()
-    conn.close()
-
-# --- VIEW 3: CHECKLIST RENDERING INTERFACE LAYER ---
-elif menu == "📋 Task Checklist View":
-    st.title("Operational Verification — Checklist Layer")
-    st.caption("Manage granular structural checklist processing rows mapped by targeted phase constraints.")
-    st.markdown("---")
-    
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
-    employee_options = cursor.fetchall()
-    
-    if not employee_options:
-        st.info("No active employee tracks currently available.")
-    else:
-        employee_dict = {f"[{emp_id}] {name}": h_id for h_id, emp_id, name in employee_options}
-        selected_profile = st.selectbox("Select an employee to manage:", list(employee_dict.keys()))
-        selected_id = employee_dict[selected_profile]
-        
-        left_col, right_col = st.columns([2, 1], gap="large")
-        
-        with left_col:
-            for current_phase in PHASE_GROUPS:
-                st.markdown(f"### 📋 {current_phase}")
-                cursor.execute("SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (selected_id, current_phase))
-                tasks = cursor.fetchall()
-                
-                if not tasks:
-                    st.caption("_No specific tasks added to this phase module._")
-                else:
-                    for t_id, task_name, assigned_to, is_completed in tasks:
-                        checked = st.checkbox(
-                            label=f"**{task_name}** (Assigned to: `{assigned_to}`)", 
-                            value=bool(is_completed),
-                            key=f"tsk_chk_{t_id}"
-                        )
-                        new_status = 1 if checked else 0
-                        if new_status != is_completed:
-                            cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (new_status, t_id))
-                            conn.commit()
-                            st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
-                        
-        with right_col:
-            st.subheader("➕ Create Custom Task")
-            with st.form("custom_task_form", clear_on_submit=True):
-                new_task_name = st.text_input("Task Title Data:", placeholder="e.g. Process Site Badge Clearance")
-                new_phase = st.selectbox("Assign to Roadmap Phase Location:", PHASE_GROUPS)
-                new_owner = st.selectbox("Assign Owner Team Role:", AVAILABLE_TEAMS)
-                
-                if st.form_submit_button("Add Task to Active Checklist") and new_task_name != "":
-                    cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department, is_completed) VALUES (?, ?, ?, ?, ?, 0)", (selected_id, new_task_name, new_phase, new_owner, new_owner))
-                    conn.commit()
-                    st.success("Custom task appended cleanly!")
-                    st.rerun()
-    conn.close()
-
-# --- VIEW 4: MASTER REGISTRATION LAYER (UPDATED SEQUENCE PLACE) ---
+# --- VIEW 2: EMPLOYEE REGISTRATION FORM ---
 elif menu == "➕ Add New Employee":
     st.title("Employee Onboarding Profiles Engine")
     st.caption("Deploy standard operational tracks down to background ledger layers safely.")
@@ -359,13 +271,8 @@ elif menu == "➕ Add New Employee":
     st.subheader("➕ Register New Candidate")
     with st.form("registration_form_master", clear_on_submit=False):
         input_emp_id = st.text_input("Employee ID Number:", placeholder="Example format requirement: SG0001").strip()
-        
-        # ✅ MOVED: Full Name field remains here
         input_name = st.text_input("Full Name:", placeholder="e.g. JAVIER BENEDICT CUEVILLAS")
-        
-        # ✅ RE-ORDERED: Mobile Number is now placed right after Full Name
         input_mobile = st.text_input("Mobile Number (Minimum 8 digits, numeric only):", placeholder="e.g. 81039323").strip()
-        
         input_gender = st.selectbox("Gender Classification:", ["Male", "Female"])
         input_dept = st.selectbox("Allocated Corporate Account Department Hub:", YCH_DEPARTMENTS)
         input_role = st.text_input("Job Title / Position Role:", placeholder="e.g. Reach Truck Operator")
@@ -414,14 +321,14 @@ elif menu == "➕ Add New Employee":
                         ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
                         
                         # Phase 3
-                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "HR Team"),
-                        ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
                         ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                        ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
                         ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                        ("System/Application Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("System/Application Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
                         ("Forklift Training Completed (If Applicable)", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                        ("On-the-Job Training Completed", "Phase 3: Technical Training Checklist", "HR Team"),
+                        ("On-the-Job Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
                         ("Technical Competency Assessment Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
                         
                         # Phase 4
@@ -467,6 +374,105 @@ elif menu == "➕ Add New Employee":
         if st.button("Clear Notification & Register Next Profile"):
             del st.session_state["last_registered_worker"]
             st.rerun()
+
+# --- VIEW 3: CHECKLIST RENDERING INTERFACE LAYER ---
+elif menu == "📋 Task Checklist View":
+    st.title("Operational Verification — Checklist Layer")
+    st.caption("Manage granular structural checklist processing rows mapped by targeted phase constraints.")
+    st.markdown("---")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, employee_id, name FROM new_hires WHERE status = 'Active'")
+    employee_options = cursor.fetchall()
+    
+    if not employee_options:
+        st.info("No active employee tracks currently available.")
+    else:
+        employee_dict = {f"[{emp_id}] {name}": h_id for h_id, emp_id, name in employee_options}
+        selected_profile = st.selectbox("Select an employee to manage:", list(employee_dict.keys()))
+        selected_id = employee_dict[selected_profile]
+        
+        left_col, right_col = st.columns([2, 1], gap="large")
+        
+        with left_col:
+            for current_phase in PHASE_GROUPS:
+                st.markdown(f"### 📋 {current_phase}")
+                cursor.execute("SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (selected_id, current_phase))
+                tasks = cursor.fetchall()
+                
+                if not tasks:
+                    st.caption("_No specific tasks added to this phase module._")
+                else:
+                    for t_id, task_name, assigned_to, is_completed in tasks:
+                        t_space, b_space = st.columns([4, 1])
+                        
+                        with t_space:
+                            checked = st.checkbox(
+                                label=f"**{task_name}** (Assigned to: `{assigned_to}`)", 
+                                value=bool(is_completed),
+                                key=f"tsk_chk_{t_id}"
+                            )
+                            new_status = 1 if checked else 0
+                            if new_status != is_completed:
+                                cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (new_status, t_id))
+                                conn.commit()
+                                st.rerun()
+                                
+                        with b_space:
+                            if st.button("🗑️ Drop", key=f"drop_tsk_{t_id}", help="Remove this task if not applicable to this employee"):
+                                cursor.execute("DELETE FROM tasks WHERE id = ?", (t_id,))
+                                conn.commit()
+                                st.success("Task dropped!")
+                                st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
+                        
+        with right_col:
+            st.subheader("➕ Create Custom Task")
+            with st.form("custom_task_form", clear_on_submit=True):
+                new_task_name = st.text_input("Task Title Data:", placeholder="e.g. Process Site Badge Clearance")
+                new_phase = st.selectbox("Assign to Roadmap Phase Location:", PHASE_GROUPS)
+                new_owner = st.selectbox("Assign Owner Team Role:", AVAILABLE_TEAMS)
+                
+                if st.form_submit_button("Add Task to Active Checklist") and new_task_name != "":
+                    cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department, is_completed) VALUES (?, ?, ?, ?, ?, 0)", (selected_id, new_task_name, new_phase, new_owner, new_owner))
+                    conn.commit()
+                    st.success("Custom task appended cleanly!")
+                    st.rerun()
+    conn.close()
+
+# --- VIEW 4: ARCHIVED ROSTER ---
+elif menu == "🗃️ Archived Roster":
+    st.title("🗃️ Archived Onboarding Records")
+    st.caption("Historically compiled read-only database logs of verified operational assets.")
+    st.markdown("---")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, employee_id, mobile_number, name, role, department, manager, start_date, gender FROM new_hires WHERE status = 'Archived'")
+    archived_hires = cursor.fetchall()
+    
+    if not archived_hires:
+        st.info("No archived records found.")
+    else:
+        cols = st.columns(3)
+        for idx, (h_id, emp_id, mobile, name, role, dept, manager, start_date, gender) in enumerate(archived_hires):
+            gender_icon = "👨" if gender == "Male" else "👩"
+            with cols[idx % 3]:
+                with st.container(border=True):
+                    st.subheader(f"{gender_icon} {name} (Archived)")
+                    st.markdown(f"🆔 **Employee ID:** `{emp_id}` | 📱 **Mobile:** `{mobile}`")
+                    st.markdown(f"🏢 **Department:** `{dept}`")
+                    st.markdown(f"💼 **Position:** `{role}`")
+                    st.write(f"**Reporting To:** {manager}")
+                    st.markdown("---")
+                    st.success("💯 100% Onboarding Verification Complete")
+                    
+                    if st.button("⏪ Restore to Active Dashboard", key=f"restore_btn_{h_id}", use_container_width=True):
+                        cursor.execute("UPDATE new_hires SET status = 'Active' WHERE id = ?", (h_id,))
+                        conn.commit()
+                        st.rerun()
+    conn.close()
 
 # --- VIEW 5: EXPORT CENTER ---
 elif menu == "📤 Export Reports":
