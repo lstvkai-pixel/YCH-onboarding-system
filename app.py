@@ -639,32 +639,34 @@ elif menu == "📋 Task Checklist View":
         
         left_pane, right_pane = st.columns([2, 1])
         with left_pane:
+            left_pane, right_pane = st.columns([2, 1])
+        with left_pane:
+            # ➕ NEW FEATURE: Add Custom Task Form
+            with st.expander("➕ Add Custom Task to This Employee", expanded=False):
+                with st.form("add_custom_task_form", clear_on_submit=True):
+                    new_task_name = st.text_input("Task Name:", placeholder="e.g. Submit BIR Form 2316")
+                    new_task_phase = st.selectbox("Assign to Phase:", PHASE_GROUPS)
+                    new_task_team = st.selectbox("Ownership Action Team Role:", AVAILABLE_TEAMS)
+                    
+                    if st.form_submit_button("Incorporate Task into Checklist"):
+                        if new_task_name.strip() == "":
+                            st.error("Please enter a task name.")
+                        else:
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT INTO tasks (hire_id, task_name, phase, assigned_to, is_completed) 
+                                VALUES (?, ?, ?, ?, 0)
+                            """, (sel_id, new_task_name, new_task_phase, new_task_team))
+                            conn.commit()
+                            conn.close()
+                            st.success(f"🎉 '{new_task_name}' added to {new_task_phase.split(':')[0]}!")
+                            st.rerun()
+
+            # Your existing loop for displaying phases and checkboxes continues below...
             conn = get_db_connection()
             cursor = conn.cursor()
             for step_num, phase_str in enumerate(PHASE_GROUPS, start=1):
-                st.markdown(f"### 📋 {phase_str}")
-                is_locked = False
-                if step_num == 3 and p3_app: is_locked = True
-                if step_num == 4 and p4_app: is_locked = True
-                if step_num == 5 and p5_app: is_locked = True
-                if is_locked: st.warning("🔒 This phase has been locked by management sign-off approval.")
-                cursor.execute("SELECT id, task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (sel_id, phase_str))
-                rows = cursor.fetchall()
-                for t_id, t_name, team, comp in rows:
-                    c1, c2 = st.columns([4, 1])
-                    with c1:
-                        checked = st.checkbox(f"**{t_name}** `[{team}]`", value=bool(comp), key=f"t_line_{t_id}", disabled=is_locked)
-                        if checked != bool(comp) and not is_locked:
-                            cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (1 if checked else 0, t_id))
-                            conn.commit()
-                            st.rerun()
-                    with c2:
-                        if st.button("🗑️ Drop", key=f"drop_{t_id}", disabled=is_locked):
-                            cursor.execute("DELETE FROM tasks WHERE id = ?", (t_id,))
-                            conn.commit()
-                            st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
-            conn.close()
             
         with right_pane:
             st.subheader("📂 Signed Documents Vault")
