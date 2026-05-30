@@ -167,13 +167,19 @@ def assign_status_health(overall):
 # ==========================================
 # AUTHENTICATION EXPERIENCE ROUTER STATE MACHINE
 # ==========================================
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-    st.session_state["username"] = None
-    st.session_state["user_role"] = None
-    st.session_state["change_pwd"] = False  # Explicitly set here just in case
+# ✅ STEP 1: Bulletproof initialization loop
+for state_key, default_value in [
+    ("authenticated", False),
+    ("username", None),
+    ("user_role", None),
+    ("change_pwd", False),
+    ("p_check_state", False)
+]:
+    if state_key not in st.session_state:
+        st.session_state[state_key] = default_value
 
-if not st.session_state["authenticated"]:
+# ✅ STEP 2: Strict enforcement check prior to loading layout maps
+if not st.session_state.get("authenticated", False):
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
     st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding, LMS & Compliance Validation Portal</h5>", unsafe_allow_html=True)
     
@@ -193,7 +199,6 @@ if not st.session_state["authenticated"]:
                 st.session_state["authenticated"] = True
                 st.session_state["username"] = login_user
                 st.session_state["user_role"] = data[1]
-                # Force change password screen if flag is 1
                 st.session_state["change_pwd"] = True if data[2] == 1 else False
                 st.success("Access tokens granted. Directing to assigned workspace nodes...")
                 st.rerun()
@@ -201,6 +206,23 @@ if not st.session_state["authenticated"]:
                 st.error("Authentication Intercepted: Invalid username or password provided.")
     st.stop()
 
+# ✅ STEP 3: Protected password upgrade screen route 
+if st.session_state.get("change_pwd", False):
+    st.warning("⚠️ First-time login: Please update your default password.")
+    new_pwd = st.text_input("New Password:", type="password")
+    if st.button("Update Password", use_container_width=True):
+        if new_pwd.strip() != "":
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE user_accounts SET password = ?, force_password_change = 0 WHERE employee_id = ?", (new_pwd, st.session_state["username"]))
+            conn.commit()
+            conn.close()
+            st.session_state["change_pwd"] = False
+            st.success("Password secured! Redirecting...")
+            st.rerun()
+        else:
+            st.error("Password cannot be blank.")
+    st.stop()
 # ✅ FIXED: Use .get() to prevent KeyError if the state gets dropped unexpectedly
 if st.session_state.get("change_pwd", False):
     st.warning("⚠️ First-time login: Please update your default password.")
