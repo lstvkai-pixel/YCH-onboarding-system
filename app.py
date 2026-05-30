@@ -60,7 +60,7 @@ st.markdown("""
         [data-testid="stSidebar"] * { color: #FFFFFF !important; }
         h1, h2, h3 { color: #002060; font-family: sans-serif; }
         .ych-card {
-            background-color: #000000;
+            background-color: #FFFFFF;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.08);
@@ -99,7 +99,7 @@ st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
         .ych-card {
-            background-color: #FFFFFF;
+            background-color: #000000;
             border-radius: 8px;
             padding: 18px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
