@@ -270,34 +270,22 @@ st.markdown("""
 # ==========================================
 if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
-    st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
-    st.sidebar.markdown("---")
     st.markdown("""
     <style>
         .user-code-box {
-            background-color: #FFFFFF !important;
-            color: #002060 !important;
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
             padding: 10px !important;
             border-radius: 6px !important;
             text-align: center !important;
             font-weight: bold !important;
             margin-bottom: 15px !important;
-            border: 1px solid #FFFFFF !important;
+            border: 1px solid #002060 !important;
         }
     </style>
 """, unsafe_allow_html=True)
-
-# 2. Update your Sidebar logic to use the "div"
-if st.session_state["user_role"] == "Employee":
-    st.sidebar.markdown(f"""
-        <div class="user-code-box">
-            👤 User Code: {st.session_state['username']}
-        </div>
-    """, unsafe_allow_html=True)
-    
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
-    
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
