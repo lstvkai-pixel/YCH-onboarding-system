@@ -57,7 +57,7 @@ st.markdown("""
     <style>
         .stApp { background-color: #F8FAFC; }
         [data-testid="stSidebar"] { background-color: #002060; }
-        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
+        [data-testid="stSidebar"] * { color: #000000 !important; }
         h1, h2, h3 { color: #002060; font-family: sans-serif; }
         .ych-card {
             background-color: #FFFFFF;
