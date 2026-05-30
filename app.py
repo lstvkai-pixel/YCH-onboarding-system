@@ -540,34 +540,32 @@ elif menu == "➕ Add New Employee":
         
         if submit_btn:
             clean_mob = re.sub(r'\D', '', input_mobile)
-            if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
-                st.error("Validation Failed: ID must be 2 Letters + 4 Numbers.")
-            elif input_name == "" or len(clean_mob) < 8:
-                st.error("Validation Failed: Check missing fields or mobile length.")
+            # ... [Your existing validation logic] ...
             else:
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
                     # 1. Save Employee
-                    cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender))
+                    cursor.execute("INSERT INTO new_hires (...) VALUES (...)", (...))
                     new_id = cursor.lastrowid
                     
                     # 2. Provision Account
-                    cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
+                    cursor.execute("INSERT INTO user_accounts ...", ...)
+                    
+                    # 3. FORCE CREATE TASKS (Add this block!)
+                    default_tasks = [
+                        ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team")
+                    ]
+                    for t_name, p_name, own in default_tasks:
+                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to) VALUES (?, ?, ?, ?)", (new_id, t_name, p_name, own))
                     
                     conn.commit()
-                    st.success(f"🎉 Employee {input_name} ({input_emp_id}) added!")
-                    
-                    # 3. DIRECT WHATSAPP ACTION BUTTON
-                    st.subheader("📲 Send Credentials")
-                    wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
-                    wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
-                    
-                    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
-                    
-                except sqlite3.IntegrityError:
-                    st.error("Error: This Employee ID already exists in the database.")
+                    st.success(f"🎉 Employee {input_name} added with full checklist!")
+                except sqlite3.Error as e:
+                    st.error(f"Database Error: {e}")
                 conn.close()
 
 # --- WORKSPACE 3: CHECKLIST VIEW ---
