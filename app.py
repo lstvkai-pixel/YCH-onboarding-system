@@ -64,10 +64,16 @@ st.markdown("""
             height: 125px;
         }
         
-        /* THE FIX: Styles the User Code box correctly */
+        st.markdown("""
+    <style>
+        /* 1. Sidebar background */
+        [data-testid="stSidebar"] {
+            background-color: #002060 !important;
+        }
+
+        /* 2. Force text inside the white box to be dark navy */
         .user-code-box {
             background-color: #FFFFFF !important;
-            color: #002060 !important;
             padding: 10px !important;
             border-radius: 6px !important;
             text-align: center !important;
@@ -75,19 +81,23 @@ st.markdown("""
             margin-bottom: 15px !important;
             border: 1px solid #FFFFFF !important;
         }
+        
+        .user-code-box, .user-code-box span, .user-code-box p {
+            color: #002060 !important;
+        }
 
-        [data-testid="stSidebar"] button {
-            background-color: #002060 !important;
+        /* 3. Ensure regular sidebar text remains white */
+        [data-testid="stSidebar"] div, [data-testid="stSidebar"] p {
             color: #FFFFFF !important;
-            border: 1px solid #002060 !important;
-            box-shadow: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar Logo
-if os.path.exists("YCH-EX.jpeg"):
-    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)    
+st.sidebar.markdown(f"""
+    <div class="user-code-box">
+        User Code: {st.session_state['username']}
+    </div>
+""", unsafe_allow_html=True)  
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
 # ==========================================
