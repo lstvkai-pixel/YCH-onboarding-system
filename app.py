@@ -318,7 +318,7 @@ if st.session_state["user_role"] == "Employee":
 # ✅ MODIFIED: Feedback Portal cleanly extracted from the primary navigation hub layout arrays
 menu = st.sidebar.radio(
     "NAVIGATION HUB", 
-    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Training Library", "📤 Export Reports", "🚨 System Administration"]
+    ["🏢 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Rules and Guidelines", "📤 Export Reports", "🚨 System Administration"]
 )
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
@@ -699,8 +699,8 @@ elif menu == "📋 Task Checklist View":
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
             conn.close()
 
-elif menu == "📚 Training Library":
-    st.title("📚 Training Document Library")
+elif menu == "📚 Rules and Guidelines":
+    st.title("📚 SOP's and Manual")
     st.markdown("---")
     tab_view, tab_upload = st.tabs(["📖 Training Materials Repository", "📤 Upload New Learning Asset"])
     with tab_view:
