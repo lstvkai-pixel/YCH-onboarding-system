@@ -63,41 +63,17 @@ st.markdown("""
             margin-bottom: 15px;
             height: 125px;
         }
-
-        import streamlit as st
-import os
-
-# Put all your CSS here in one block, no hidden characters
-st.markdown("""
-    <style>
-        .stApp { background-color: #F8FAFC; }
-        [data-testid="stSidebar"] { background-color: #002060; }
-        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
         
-        h1, h2, h3 { color: #002060; font-family: sans-serif; }
-        
-        .ych-card {
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-            border-left: 6px solid #C5A059;
-            margin-bottom: 20px;
-        }
-        
+        /* THE FIX: Styles the User Code box correctly */
         .user-code-box {
             background-color: #FFFFFF !important;
+            color: #002060 !important;
             padding: 10px !important;
             border-radius: 6px !important;
             text-align: center !important;
             font-weight: bold !important;
             margin-bottom: 15px !important;
             border: 1px solid #FFFFFF !important;
-            color: #002060 !important;
-        }
-        
-        .user-code-box span {
-            color: #002060 !important;
         }
 
         [data-testid="stSidebar"] button {
@@ -109,11 +85,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown(f"""
-    <div class="user-code-box">
-        User Code: {st.session_state['username']}
-    </div>
-""", unsafe_allow_html=True)  
+# Sidebar Logo
+if os.path.exists("YCH-EX.jpeg"):
+    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)    
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
 # ==========================================
@@ -323,8 +297,10 @@ if st.session_state["user_role"] == "Employee":
         }
     </style>
 """, unsafe_allow_html=True)
+    
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
+    
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
     conn = get_db_connection()
