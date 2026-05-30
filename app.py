@@ -64,16 +64,26 @@ st.markdown("""
             height: 125px;
         }
         
-        st.markdown("""
+st.markdown("""
     <style>
-        /* 1. Sidebar background */
-        [data-testid="stSidebar"] {
-            background-color: #002060 !important;
+        .stApp { background-color: #F8FAFC; }
+        [data-testid="stSidebar"] { background-color: #002060; }
+        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
+        
+        h1, h2, h3 { color: #002060; font-family: sans-serif; }
+        
+        .ych-card {
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            border-left: 6px solid #C5A059;
+            margin-bottom: 20px;
         }
-
-        /* 2. Force text inside the white box to be dark navy */
+        
         .user-code-box {
             background-color: #FFFFFF !important;
+            color: #002060 !important;
             padding: 10px !important;
             border-radius: 6px !important;
             text-align: center !important;
@@ -81,14 +91,25 @@ st.markdown("""
             margin-bottom: 15px !important;
             border: 1px solid #FFFFFF !important;
         }
-        
+
         .user-code-box, .user-code-box span, .user-code-box p {
             color: #002060 !important;
         }
 
-        /* 3. Ensure regular sidebar text remains white */
-        [data-testid="stSidebar"] div, [data-testid="stSidebar"] p {
+        [data-testid="stSidebar"] button {
+            background-color: #002060 !important;
             color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
+        }
+
+        [data-testid="stSidebar"] button:hover,
+        [data-testid="stSidebar"] button:active,
+        [data-testid="stSidebar"] button:focus {
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
         }
     </style>
 """, unsafe_allow_html=True)
