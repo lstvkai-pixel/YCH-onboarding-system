@@ -635,64 +635,51 @@ elif menu == "➕ Add New Employee":
     manager_options = [r[0] for r in cursor.fetchall()]
     conn.close()
     
-    with st.form("master_reg_form_v2", clear_on_submit=True):
-        input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format requirement: SG0001").strip().upper()
-        input_name = st.text_input("Candidate Full Name Layout:")
-        input_mobile = st.text_input("Mobile Number (Minimum 8 digits, numeric only):").strip()
+    with st.form("master_reg_form_v2", clear_on_submit=False):
+        input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format: SG0001").strip().upper()
+        input_name = st.text_input("Candidate Full Name:")
+        input_mobile = st.text_input("Mobile Number (Numbers only, e.g. 639123456789):").strip()
         input_gender = st.selectbox("Gender:", ["Male", "Female"])
-        input_dept = st.selectbox("Allocated Logistics Hub Department:", YCH_DEPARTMENTS)
-        input_role = st.text_input("Job Position / Operations Title:", placeholder="e.g. Reach Truck Operator")
-        input_manager = st.selectbox("Reporting Manager/PIC Option:", manager_options) if manager_options else "No Manager Assigned"
+        input_dept = st.selectbox("Department:", YCH_DEPARTMENTS)
+        input_role = st.text_input("Job Position:")
+        input_manager = st.selectbox("Reporting Manager:", manager_options) if manager_options else "No Manager Assigned"
         input_date_picker = st.date_input("Start Date:")
-        uploaded_pic = st.file_uploader("Upload Corporate Digital Employee Photo (.png, .jpg):", type=["png", "jpg", "jpeg"])
+        uploaded_pic = st.file_uploader("Employee Photo:", type=["png", "jpg", "jpeg"])
         
-        if st.form_submit_button("Deploy Onboarding Track & Format Alert"):
+        submit_btn = st.form_submit_button("Deploy Onboarding Track")
+        
+        if submit_btn:
             clean_mob = re.sub(r'\D', '', input_mobile)
             if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
-                st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers (Example: PH1234).")
-            elif input_name == "" or len(clean_mob) < 8 or input_manager == "No Manager Assigned":
-                st.error("Validation Failed: Check missing fields or length requirements.")
+                st.error("Validation Failed: ID must be 2 Letters + 4 Numbers.")
+            elif input_name == "" or len(clean_mob) < 8:
+                st.error("Validation Failed: Check missing fields or mobile length.")
             else:
-                saved_img_path = None
-                if uploaded_pic:
-                    os.makedirs("photos", exist_ok=True)
-                    saved_img_path = f"photos/{input_emp_id}_{uploaded_pic.name}"
-                    with open(saved_img_path, "wb") as f: f.write(uploaded_pic.getbuffer())
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
-                    cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
-                                   (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, saved_img_path))
+                    # 1. Save Employee
+                    cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender))
                     new_id = cursor.lastrowid
                     
-                    cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type) VALUES (?, 'YCH1234', 'Employee')", (input_emp_id,))
+                    # 2. Provision Account
+                    cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    default_tasks = [
-                        ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                        ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                        ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                        ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                        ("HR Onboarding Documentation Processing", "Phase 2: Day 1 Checklist", "HR Team"),
-                        ("Security Training and Warehouse Entry Processing", "Phase 2: Day 1 Checklist", "Security Team"),
-                        ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
-                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
-                        ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
-                        ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                        ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
-                        ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                        ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
-                        ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
-                        ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
-                        ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team")
-                    ]
-                    for t_name, p_name, own in default_tasks:
-                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_id, t_name, p_name, own, input_dept))
                     conn.commit()
-                    st.success("Successfully generated profile tracking layers.")
+                    st.success(f"🎉 Employee {input_name} ({input_emp_id}) added!")
+                    
+                    # 3. DIRECT WHATSAPP ACTION BUTTON
+                    st.subheader("📲 Send Credentials")
+                    wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
+                    wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
+                    
+                    st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
+                    
                 except sqlite3.IntegrityError:
-                    st.error("Conflict Error: That Employee ID Number is already registered.")
+                    st.error("Error: This Employee ID already exists in the database.")
                 conn.close()
-
+                
 # --- WORKSPACE 3: CHECKLIST VIEW ---
 elif menu == "📋 Task Checklist View":
     st.title("📋 Phased Checklist Processing & Verification Layer")
