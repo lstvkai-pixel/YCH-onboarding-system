@@ -699,8 +699,8 @@ elif menu == "📋 Task Checklist View":
             else: st.markdown("🤝 _Phase 5 HR Final Validation Signed Off_")
             conn.close()
 
-elif menu == "📚 Learning Center":
-    st.title("📚 YCH Group Learning Management System (LMS)")
+elif menu == "📚 Training Library":
+    st.title("📚 Training Document Library")
     st.markdown("---")
     tab_view, tab_upload = st.tabs(["📖 Training Materials Repository", "📤 Upload New Learning Asset"])
     with tab_view:
