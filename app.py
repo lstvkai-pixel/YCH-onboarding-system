@@ -12,31 +12,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 
-==========================================
-# THEME STYLING
-# ==========================================
-st.markdown("""
-    <style>
-        .stApp { background-color: #F8FAFC; }
-        [data-testid="stSidebar"] { background-color: #002060; }
-        [data-testid="stSidebar"] * { color: #FFFFFF !important; }
-        h1, h2, h3 { color: #002060; font-family: sans-serif; }
-        .ych-card {
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            border-left: 6px solid #C5A059;
-            margin-bottom: 20px;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# Sidebar with Logo
-if os.path.exists("YCH-EX.jpeg"):
-    st.sidebar.image("YCH-EX.jpeg", use_column_width=True)
-st.sidebar.markdown("---")
-
 # ==========================================
 # DATABASE ENTERPRISE BACKEND LOGIC
 # ==========================================
