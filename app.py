@@ -41,20 +41,21 @@ def init_database():
             phase5_approved INTEGER DEFAULT 0
         )
     ''')
-    
-    columns_to_add = [
-        ("photo_path", "TEXT DEFAULT NULL"),
-        ("phase3_approved", "INTEGER DEFAULT 0"),
-        ("phase4_approved", "INTEGER DEFAULT 0"),
-        ("phase5_approved", "INTEGER DEFAULT 0")
-    ]
-    for col_name, col_type in columns_to_add:
-        try:
-            cursor.execute(f"ALTER TABLE new_hires ADD COLUMN {col_name} {col_type}")
-        except sqlite3.OperationalError:
-            pass
 
-    # 2. Detailed Historical Training Hours Table
+    # 2. Secure Accounts Ledger Table (Drives Employee Login Experience)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_id TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL DEFAULT 'YCH1234',
+            role_type TEXT NOT NULL DEFAULT 'Employee'
+        )
+    ''')
+    
+    # Inject an absolute default master admin employer handle account for initialization
+    cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type) VALUES ('ADMIN', 'YCHADMIN', 'Employer')")
+    
+    # 3. Detailed Historical Training Hours Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS training_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +69,7 @@ def init_database():
         )
     ''')
     
-    # 3. Tasks Table
+    # 4. Tasks Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,7 +83,7 @@ def init_database():
         )
     ''')
 
-    # 4. Signed Documents Vault Storage Table
+    # 5. Signed Documents Vault Storage Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS signed_documents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +95,7 @@ def init_database():
         )
     ''')
     
-    # 5. LMS Modules Storage Table
+    # 6. LMS Modules Storage Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lms_materials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,7 +106,7 @@ def init_database():
         )
     ''')
     
-    # 6. Certification Ledger Table
+    # 7. Certification Ledger Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS certifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,7 +118,7 @@ def init_database():
         )
     ''')
     
-    # 7. Feedback Tickets Engine Table
+    # 8. Feedback Tickets Engine Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS feedback_tickets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,7 +131,7 @@ def init_database():
         )
     ''')
     
-    # 8. Corporate Announcement Bulletin Table (Updated with attachment trace support)
+    # 9. Corporate Announcement Bulletin Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,12 +142,8 @@ def init_database():
             file_path TEXT DEFAULT NULL
         )
     ''')
-    try:
-        cursor.execute("ALTER TABLE announcements ADD COLUMN file_path TEXT DEFAULT NULL")
-    except sqlite3.OperationalError:
-        pass
     
-    # 9. Managers Reference List Table
+    # 10. Managers Reference List Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS managers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,7 +151,7 @@ def init_database():
         )
     ''')
     
-    # System Migration Mappings
+    # Structural Migrations Cleanups
     cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 2: Day 1 Checklist' WHERE phase LIKE 'Group 2%'")
     cursor.execute("UPDATE tasks SET phase = 'Phase 5: Employee Engagement & Follow-up Checklist' WHERE phase LIKE 'Group 3%'")
@@ -274,10 +271,159 @@ def assign_status_health(overall):
     return "🔴 Critical"
 
 # ==========================================
-# STREAMLIT UI CONFIGURATION & NAVIGATION
+# AUTHENTICATION EXPERIENCE ROUTER STATE MACHINE
 # ==========================================
-st.sidebar.markdown("<h2 style='color: #003366; font-family: sans-serif; font-weight: 800; margin-bottom: 0px;'>🏢 YCH GROUP</h2>", unsafe_allow_html=True)
-st.sidebar.caption("Human Resources Experience Hub")
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+    st.session_state["username"] = None
+    st.session_state["user_role"] = None
+
+if not st.session_state["authenticated"]:
+    # Render stylized HR authentication card landing pane
+    st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color: #0078D4; text-align: center; font-family: sans-serif; font-weight: 400;'>Workforce Onboarding, LMS & Compliance Validation Portal</h5>", unsafe_allow_html=True)
+    
+    with st.container(border=True):
+        st.subheader("🔑 Identity Secure Access Sign-In")
+        login_user = st.text_input("User Employee ID / Username ID:").strip()
+        login_pass = st.text_input("Account Access Password:", type="password")
+        
+        if st.button("Authorize Portal Entry", use_container_width=True):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AND password = ?", (login_user, login_pass))
+            found_acct = cursor.fetchone()
+            conn.close()
+            
+            if found_acct:
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = login_user.upper()
+                st.session_state["user_role"] = found_acct[0]
+                st.success("Access tokens granted. Directing to assigned workspace nodes...")
+                st.rerun()
+            else:
+                st.error("Authentication Intercepted: Invalid structural username or password provided.")
+    st.stop()
+
+# Logout execution button hook on sidebar canvas top
+if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
+    st.session_state["authenticated"] = False
+    st.session_state["username"] = None
+    st.session_state["user_role"] = None
+    st.rerun()
+
+# ==========================================
+# HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
+# ==========================================
+if st.session_state["user_role"] == "Employee":
+    st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
+    st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
+    st.sidebar.markdown("---")
+    
+    emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center", "💬 Submit Feedback Report"])
+    
+    # Connect directly to tracking objects belonging to this user handle context string
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE UPPER(employee_id) = ?", (st.session_state["username"],))
+    emp_node = cursor.fetchone()
+    conn.close()
+    
+    if not emp_node:
+        st.warning("⚠️ Profile Configuration Exception: Your candidate account profile has not been initialized in the new hires table layout yet. Contact your HR manager PIC.")
+    else:
+        h_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = emp_node
+        ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
+        health_state = assign_status_health(ovr_pct)
+        total_h = get_total_learning_hours(h_id)
+        earned_achievements = evaluate_achievements(h_id, ovr_pct, p_breakdown, total_h)
+        
+        if emp_menu == "📋 My Onboarding Journey Map":
+            st.title("📋 My Professional Onboarding Experience Roadmap")
+            st.caption("Track your personal 5-Phase structural milestone checkpoints and technical progress records live.")
+            st.markdown("---")
+            
+            with st.container(border=True):
+                dc1, dc2 = st.columns([1, 4])
+                with dc1:
+                    if photo and os.path.exists(photo): st.image(photo, width=120)
+                    else: st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=120)
+                with dc2:
+                    st.subheader(f"Welcome, {name}!")
+                    st.markdown(f"🆔 **Employee ID:** `{st.session_state['username']}` | 💼 **Position Role:** `{role}`")
+                    st.markdown(f"🏢 **Assigned Department:** `{dept}` | 👤 **Reporting Manager PIC:** `{manager}`")
+                    st.markdown(f"📈 **Track Journey Status:** {health_state} | ⏱️ **Total Learning Hours Logged:** `{total_h} Hours`")
+                    
+                    if earned_achievements:
+                        st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.subheader("🛣️ Onboarding Visual Journey Tracks Progression Map")
+            m_cols = st.columns(5)
+            for step_idx, phase_spec in enumerate(PHASE_GROUPS):
+                p_code = phase_spec.split(":")[0]
+                p_val = p_breakdown[p_code]
+                with m_cols[step_idx]:
+                    bg_lbl = "🔵" if p_val == 100 else ("🟠" if p_val > 0 else "⚪")
+                    st.markdown(f"<div style='text-align:center; font-size:12px; background:#EEF2F6; padding:8px; border-radius:4px;'>{bg_lbl} <b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
+
+            st.markdown("<br><hr><br>", unsafe_allow_html=True)
+            st.subheader("📋 Detailed Individual Milestones Task Checklist Logs")
+            for current_phase in PHASE_GROUPS:
+                with st.expander(f"📌 {current_phase} (Progress Fraction: {p_breakdown[current_phase.split(':')[0]]}%)"):
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (h_id, current_phase))
+                    ptasks = cursor.fetchall()
+                    conn.close()
+                    
+                    if not ptasks: st.caption("_No roadmap parameters verified onto this phase container block currently._")
+                    for t_name, team, comp in ptasks:
+                        icon_s = "✅ Complete" if comp else "⏳ Pending Processing"
+                        st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
+
+        elif emp_menu == "📚 Library Training center":
+            st.title("📚 Distributed LMS Asset Training Document Library")
+            st.caption("Review required Standard Operating Procedures (SOPs), manuals, and work guides matching your onboarding roadmap constraints.")
+            st.markdown("---")
+            
+            sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT title, doc_type FROM lms_materials WHERE phase = ?", (sel_phase,))
+            items = cursor.fetchall()
+            conn.close()
+            
+            if not items:
+                st.info("No training materials or manuals published by administrators onto this phase context layer yet.")
+            else:
+                for title, d_type in items:
+                    st.markdown(f"📄 **{title}** `[{d_type}]` — _Read and understand guidelines carefully._")
+
+        elif emp_menu == "💬 Submit Feedback Report":
+            st.title("💬 Two-Way HR Engagement Feedback Ticket System")
+            st.caption("File structural workplace suggestions, concern descriptions, or improvement data lines straight to HRIS management reviews.")
+            st.markdown("---")
+            
+            with st.form("emp_private_feedback", clear_on_submit=True):
+                f_cat = st.selectbox("Identify Category classification:", ["Safety", "Operations", "Training", "HR", "Workplace"])
+                f_text = st.text_area("Type description contents details:")
+                if st.form_submit_button("🔒 File Private Ticket to HR"):
+                    if f_text != "":
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("INSERT INTO feedback_tickets (hire_id, category, content, ticket_status, date_logged) VALUES (?, ?, ?, 'Open', ?)", (h_id, f_cat, f_text, datetime.now().strftime("%Y-%m-%d")))
+                        conn.commit()
+                        conn.close()
+                        st.success("Feedback filed cleanly. Corporate personnel teams will process resolution parameters.")
+                    else: st.error("Ticket description cannot be empty strings bounds.")
+    st.stop()
+
+# ==========================================
+# HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL RUNTIME
+# ==========================================
+st.sidebar.markdown(f"👤 **Employer Access Profile:** `{st.session_state['username']}`")
+st.sidebar.markdown("🔑 **Role Token Authorization:** Corporate Admin Hub")
 st.sidebar.markdown("---")
 
 menu = st.sidebar.radio(
@@ -294,6 +440,7 @@ if menu == "🏢 Corporate Experience Landing":
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # High Level Enterprise Metric Scorecards
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM new_hires WHERE status = 'Active'")
@@ -338,10 +485,8 @@ if menu == "🏢 Corporate Experience Landing":
                 with st.container(border=True):
                     dc1, dc2, dc3 = st.columns([1, 3, 2])
                     with dc1:
-                        if photo and os.path.exists(photo):
-                            st.image(photo, width=120)
-                        else:
-                            st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=120)
+                        if photo and os.path.exists(photo): st.image(photo, width=120)
+                        else: st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=120)
                     with dc2:
                         st.subheader(f"{name} ({emp_id})")
                         st.markdown(f"💼 **{role}** | 🏬 {dept} | 👤 PIC: *{manager}*")
@@ -470,7 +615,6 @@ if menu == "🏢 Corporate Experience Landing":
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         conn = get_db_connection()
         cursor = conn.cursor()
-        # ✅ UPGRADE: Pull file attachments if available from database layer
         cursor.execute("SELECT title, category, content, date_posted, file_path FROM announcements ORDER BY id DESC")
         notices = cursor.fetchall()
         conn.close()
@@ -481,14 +625,12 @@ if menu == "🏢 Corporate Experience Landing":
             for title, cat, content, dt, f_path in notices:
                 st.markdown(f"##### 🔔 {title} `[{cat}]` — _Posted on {dt}_")
                 st.write(content)
-                
-                # ✅ UPGRADE: Render direct document attachment vault links in the feed tab layer
                 if f_path and os.path.exists(f_path):
                     with open(f_path, "rb") as b_stream:
                         st.download_button(label=f"📎 Download Attached Memo Document File ({os.path.basename(f_path)})", data=b_stream.read(), file_name=os.path.basename(f_path), key=f"dl_ann_{dt}_{title}")
                 st.markdown("---")
 
-# --- WORKSPACE 2: EMPLOYEE REGISTRATION ---
+# --- WORKSPACE 2: ROSTER REGISTRATION ENGINE (AUTO CREATES USER ACCOUNTS) ---
 elif menu == "➕ Add New Employee":
     st.title("➕ Roster New Workforce Profile")
     st.markdown("---")
@@ -499,7 +641,7 @@ elif menu == "➕ Add New Employee":
     conn.close()
     
     with st.form("master_reg_form_v2", clear_on_submit=True):
-        input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format requirement: SG0001").strip()
+        input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format requirement: SG0001").strip().upper()
         input_name = st.text_input("Candidate Full Name Layout:")
         input_mobile = st.text_input("Mobile Number (Minimum 8 digits, numeric only):").strip()
         input_gender = st.selectbox("Gender:", ["Male", "Female"])
@@ -512,45 +654,52 @@ elif menu == "➕ Add New Employee":
         if st.form_submit_button("Deploy Onboarding Track & Format Alert"):
             clean_mob = re.sub(r'\D', '', input_mobile)
             if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
-                st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers.")
+                st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers (Example: PH1234).")
             elif input_name == "" or len(clean_mob) < 8 or input_manager == "No Manager Assigned":
-                st.error("Validation Failed: Check empty fields or length requirements.")
+                st.error("Validation Failed: Check missing fields or criteria.")
             else:
                 saved_img_path = None
                 if uploaded_pic:
                     os.makedirs("photos", exist_ok=True)
                     saved_img_path = f"photos/{input_emp_id}_{uploaded_pic.name}"
-                    with open(saved_img_path, "wb") as f:
-                        f.write(uploaded_pic.getbuffer())
+                    with open(saved_img_path, "wb") as f: f.write(uploaded_pic.getbuffer())
+                
                 conn = get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
-                               (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, saved_img_path))
-                new_id = cursor.lastrowid
-                default_tasks = [
-                    ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                    ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                    ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                    ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                    ("HR Onboarding Documentation Processing", "Phase 2: Day 1 Checklist", "HR Team"),
-                    ("Security Training and Warehouse Entry Processing", "Phase 2: Day 1 Checklist", "Security Team"),
-                    ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
-                    ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
-                    ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
-                    ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                    ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
-                    ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
-                    ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
-                    ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
-                    ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
-                    ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team")
-                ]
-                for t_name, p_name, own in default_tasks:
-                    cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_id, t_name, p_name, own, input_dept))
-                conn.commit()
+                try:
+                    # Save Employee Profile
+                    cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, status, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?)",
+                                   (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, saved_img_path))
+                    new_hire_db_id = cursor.lastrowid
+                    
+                    # ✅ ENHANCEMENT: Auto-provision matching User Access Credentials block
+                    cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type) VALUES (?, 'YCH1234', 'Employee')", (input_emp_id,))
+                    
+                    default_tasks = [
+                        ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("HR Onboarding Documentation Processing", "Phase 2: Day 1 Checklist", "HR Team"),
+                        ("Security Training and Warehouse Entry Processing", "Phase 2: Day 1 Checklist", "Security Team"),
+                        ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
+                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team")
+                    ]
+                    for t_name, p_name, own in default_tasks:
+                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, department) VALUES (?, ?, ?, ?, ?)", (new_hire_id, t_name, p_name, own, input_dept))
+                    conn.commit()
+                    st.success(f"🎉 Success: Created employee roadmap profile and auto-provisioned user credentials! Default Password is: 'YCH1234'")
+                except sqlite3.IntegrityError:
+                    st.error("Conflict Error: That Employee ID Number is already registered in user accounts stores.")
                 conn.close()
-                st.success("Successfully generated profile tracking layers.")
-                st.rerun()
 
 # --- WORKSPACE 3: CHECKLIST VIEW ---
 elif menu == "📋 Task Checklist View":
@@ -607,9 +756,7 @@ elif menu == "📋 Task Checklist View":
                 if st.form_submit_button("🔒 Upload Document to Vault") and doc_title_input != "" and uploaded_doc_file is not None:
                     os.makedirs("vault", exist_ok=True)
                     clean_filename = f"vault/{sel_id}_{int(datetime.now().timestamp())}_{uploaded_doc_file.name}"
-                    with open(clean_filename, "wb") as f:
-                        f.write(uploaded_doc_file.getbuffer())
-                    
+                    with open(clean_filename, "wb") as f: f.write(uploaded_doc_file.getbuffer())
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute("INSERT INTO signed_documents (hire_id, doc_name, file_path, date_uploaded) VALUES (?, ?, ?, ?)", 
@@ -827,14 +974,11 @@ elif menu == "🚨 System Administration":
                 st.rerun()
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Reference layout: image_686fa7.png
         st.subheader("📢 Post Corporate Announcement Bulletin")
         with st.form("ann_form", clear_on_submit=False):
             a_title = st.text_input("Announcement Title Heading:")
             a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"])
             a_body = st.text_area("Announcement Description Body Content:")
-            
-            # ✅ NEW: Document/Image uploader added inside the bulletin creator form block
             a_file = st.file_uploader("Attach Document Memo File / Image (Optional):", type=["pdf", "png", "jpg", "jpeg"])
             
             if st.form_submit_button("📢 Publish Notice to Workspace") and a_title != "":
@@ -842,8 +986,7 @@ elif menu == "🚨 System Administration":
                 if a_file is not None:
                     os.makedirs("attachments", exist_ok=True)
                     saved_ann_file = f"attachments/{int(datetime.now().timestamp())}_{a_file.name}"
-                    with open(saved_ann_file, "wb") as f_out:
-                        f_out.write(a_file.getbuffer())
+                    with open(saved_ann_file, "wb") as f_out: f_out.write(a_file.getbuffer())
                 
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -851,9 +994,32 @@ elif menu == "🚨 System Administration":
                                (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file))
                 conn.commit()
                 conn.close()
-                st.success("🎉 Bulletin notice with attached file published live successfully!")
+                st.success("📢 Bulletin notice published live successfully!")
                 st.rerun()
     with adm_c2:
+        # ✅ NEW ENHANCEMENT: Employer utility to override/change credentials password for any Employee ID
+        st.subheader("🔑 Employee Password Override Control Panel")
+        with st.form("password_reset_form", clear_on_submit=True):
+            target_reset_id = st.text_input("Target Employee ID to Override (e.g., SG0002):").strip().upper()
+            new_target_password = st.text_input("Provide New Account Access Password:", type="password")
+            
+            if st.form_submit_button("🔒 Apply Password Override"):
+                if target_reset_id != "" and new_target_password != "":
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM user_accounts WHERE UPPER(employee_id) = ? AND role_type = 'Employee'", (target_reset_id,))
+                    valid_emp_account = cursor.fetchone()
+                    
+                    if valid_emp_account:
+                        cursor.execute("UPDATE user_accounts SET password = ? WHERE UPPER(employee_id) = ?", (new_target_password, target_reset_id))
+                        conn.commit()
+                        st.success(f"Successfully overrode access security key for employee: `{target_reset_id}`!")
+                    else:
+                        st.error("Target Error: No registered employee account was found matching that specific ID code string.")
+                    conn.close()
+                else: st.error("Validation Error: Please fill out both target fields.")
+
+        st.markdown("<br><hr><br>", unsafe_allow_html=True)
         st.subheader("🚨 Danger Zone: Purge Roster Accounts")
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -865,6 +1031,10 @@ elif menu == "🚨 System Administration":
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
             p_check = st.checkbox("Confirm permanent account removal deletion.")
             if st.button("Permanently Erase Profile", type="primary") and p_check:
+                # Purge from hires, tasks, and accounts ledger
+                cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                tgt_emp_code = cursor.fetchone()[0]
+                cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
                 cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
                 cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
                 conn.commit()
