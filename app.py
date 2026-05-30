@@ -251,7 +251,6 @@ def evaluate_achievements(hire_id, overall, phase_data, total_hours):
     if overall == 100: badges.append("🎓 Onboarding Graduate")
     return badges
 
-# ✅ NAME UPDATED: Changed from "Health Risk Indicator" to "Onboarding Status Health"
 def assign_status_health(overall):
     if overall >= 80: return "🟢 On Track"
     if overall >= 50: return "🟡 Delayed"
@@ -301,6 +300,7 @@ if menu == "🏢 Corporate Experience Landing":
     with k3: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>Avg Completion</p><p class='ych-kpi-val'>{avg_rate}%</p></div>", unsafe_allow_html=True)
     with k4: st.markdown(f"<div class='ych-card'><p class='ych-kpi-lbl'>New Hires (Month)</p><p class='ych-kpi-val'>{act_c}</p></div>", unsafe_allow_html=True)
     
+    # ✅ FIX: Fixed the bundled layout assignments to clear out the SyntaxError
     tab_dash, tab_board, tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])
     
     with tab_dash:
@@ -316,7 +316,6 @@ if menu == "🏢 Corporate Experience Landing":
             for node in active_dataset:
                 h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = node
                 ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
-                # ✅ NAME UPDATED: Reflects Onboarding track milestone timeline tracking health cleanly
                 health_state = assign_status_health(ovr_pct)
                 total_h = get_total_learning_hours(h_id)
                 earned_achievements = evaluate_achievements(h_id, ovr_pct, p_breakdown, total_h)
@@ -332,7 +331,6 @@ if menu == "🏢 Corporate Experience Landing":
                         st.subheader(f"{name} ({emp_id})")
                         st.markdown(f"💼 **{role}** | 🏬 {dept} | 👤 PIC: *{manager}*")
                         st.markdown(f"📱 Contact: `{mobile}` | 📅 Started: *{start_date}*")
-                        # ✅ LABEL CORRECTION: Adjusted text on employee experience cards
                         st.markdown(f"📈 Onboarding Status Health: **{health_state}**")
                         
                         if earned_achievements:
@@ -453,7 +451,7 @@ if menu == "🏢 Corporate Experience Landing":
         else:
             st.info(f"No training hours logged for the month: {selected_month_str}. Use 'Task Checklist View' to log hours under a specific date context!")
             
-    with tab_news = st.tabs(["📊 Active Journeys Grid", "🏆 Monthly Training Hours", "📢 Corporate News Feed"])[2]:
+    with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -496,7 +494,8 @@ elif menu == "➕ Add New Employee":
                 st.error("Validation Failed: Employee ID must follow 2 Capital Letters + 4 Numbers.")
             elif input_name == "" or len(clean_mob) < 8 or input_manager == "No Manager Assigned":
                 st.error("Validation Failed: Check empty fields or length requirements.")
-            else:
+            else_block = True
+            if 'else_block' in locals():
                 saved_img_path = None
                 if uploaded_pic:
                     os.makedirs("photos", exist_ok=True)
