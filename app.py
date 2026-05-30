@@ -307,8 +307,8 @@ if st.session_state["user_role"] == "Employee":
                         icon_s = "✅ Complete" if comp else "⏳ Pending Processing"
                         st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
 
-        elif emp_menu == "📚 Library Training center":
-            st.title("📚 Distributed LMS Asset Training Document Library")
+        elif emp_menu == "📚 Rules and Guidelines":
+            st.title("📚 SOP and Manual")
             st.markdown("---")
             
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
@@ -458,13 +458,13 @@ if menu == "🏢 Corporate Experience Landing":
                             
                             story = [
                                 Spacer(1, 100),
-                                Paragraph("YCH GROUP GRADUATION CERTIFICATE", cert_style),
+                                Paragraph("COMPLETION CERTIFICATE", cert_style),
                                 Spacer(1, 30),
                                 Paragraph(f"This document proudly certifies that", body_style),
                                 Spacer(1, 15),
                                 Paragraph(f"<b>{name}</b>", cert_style),
                                 Spacer(1, 15),
-                                Paragraph(f"has successfully completed the complete enterprise logistics onboarding track curriculum for position <b>{role}</b> inside the <b>{dept}</b> account team framework securely.", body_style),
+                                Paragraph(f"has successfully completed the complete the onboarding track for position <b>{role}</b> inside the <b>{dept}</b> account team framework securely.", body_style),
                                 Spacer(1, 40),
                                 Paragraph(f"Verified Registration Key: <i>{emp_id}</i> | Date Issued: {datetime.now().strftime('%B %d, %Y')}", body_style),
                                 Spacer(1, 50),
