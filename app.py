@@ -272,26 +272,6 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
-    st.markdown("""
-    <style>
-        /* Sidebar container styling */
-        .user-code-container {
-            background-color: #FFFFFF !important; /* White background */
-            padding: 8px 12px !important;
-            border-radius: 6px !important;
-            margin-bottom: 10px !important;
-            text-align: center !important;
-            /* Force text color to dark blue */
-            color: #002060 !important; 
-            font-weight: bold !important;
-        }
-        
-        /* Ensure the span/text inside the div also adopts the dark color */
-        .user-code-container span {
-            color: #002060 !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
@@ -355,7 +335,7 @@ if st.session_state["user_role"] == "Employee":
                         st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
 
         elif emp_menu == "📚 Library Training center":
-            st.title("📚 Distributed Training Document Library")
+            st.title("📚 Distributed LMS Asset Training Document Library")
             st.markdown("---")
             
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
