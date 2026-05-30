@@ -168,9 +168,7 @@ def assign_status_health(overall):
 # AUTHENTICATION EXPERIENCE ROUTER STATE MACHINE
 # ==========================================
 if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-    st.session_state["username"] = None
-    st.session_state["user_role"] = None
+    st.session_state.update({"authenticated": False, "username": None, "user_role": None, "change_pwd": False})
 
 if not st.session_state["authenticated"]:
     st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 700; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
@@ -184,25 +182,43 @@ if not st.session_state["authenticated"]:
         if st.button("Authorize Portal Entry", use_container_width=True):
             conn = get_db_connection()
             cursor = conn.cursor()
-            # ✅ FIXED: Removed 'AppAND' syntax typo mismatch to perform clear password validations cleanly
-            cursor.execute("SELECT role_type FROM user_accounts WHERE UPPER(employee_id) = UPPER(?) AND password = ?", (login_user, login_pass))
-            found_acct = cursor.fetchone()
+            cursor.execute("SELECT password, role_type, force_password_change FROM user_accounts WHERE employee_id = ?", (login_user,))
+            data = cursor.fetchone()
             conn.close()
             
-            if found_acct:
-                st.session_state["authenticated"] = True
-                st.session_state["username"] = login_user.upper()
-                st.session_state["user_role"] = found_acct[0]
+            if data and data[0] == login_pass:
+                st.session_state.update({
+                    "authenticated": True,
+                    "username": login_user,
+                    "user_role": data[1]
+                })
+                if data[2] == 1: 
+                    st.session_state["change_pwd"] = True
                 st.success("Access tokens granted. Directing to assigned workspace nodes...")
                 st.rerun()
             else:
                 st.error("Authentication Intercepted: Invalid username or password provided.")
     st.stop()
 
+if st.session_state["change_pwd"]:
+    st.warning("⚠️ First-time login: Please update your default password.")
+    new_pwd = st.text_input("New Password:", type="password")
+    if st.button("Update Password", use_container_width=True):
+        if new_pwd.strip() != "":
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE user_accounts SET password = ?, force_password_change = 0 WHERE employee_id = ?", (new_pwd, st.session_state["username"]))
+            conn.commit()
+            conn.close()
+            st.session_state["change_pwd"] = False
+            st.success("Password secured! Redirecting...")
+            st.rerun()
+        else:
+            st.error("Password cannot be blank.")
+    st.stop()
+
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
-    st.session_state["authenticated"] = False
-    st.session_state["username"] = None
-    st.session_state["user_role"] = None
+    for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
 # ==========================================
@@ -250,11 +266,11 @@ if st.session_state["user_role"] == "Employee":
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### Onboarding Journey Track Progress Map")
-            m_cols = st.columns(5)
+            st.columns_space = st.columns(5)
             for step_idx, phase_spec in enumerate(PHASE_GROUPS):
                 p_code = phase_spec.split(":")[0]
                 p_val = p_breakdown[p_code]
-                with m_cols[step_idx]:
+                with columns_space[step_idx]:
                     bg_lbl = "🔵" if p_val == 100 else ("🟠" if p_val > 0 else "⚪")
                     st.markdown(f"<div style='text-align:center; font-size:12px; background:#EEF2F6; padding:8px; border-radius:4px;'>{bg_lbl} <b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
 
@@ -553,13 +569,35 @@ elif menu == "➕ Add New Employee":
                                    (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender))
                     new_id = cursor.lastrowid
                     
-                    # 2. Provision Account
+                    # 2. Provision Account Access Ledger
                     cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                     
-                    conn.commit()
-                    st.success(f"🎉 Employee {input_name} ({input_emp_id}) added!")
+                    # 3. FIX ADDED: Inject the complete missing structural roadmap default tasks list mapping loop!
+                    default_tasks = [
+                        ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                        ("HR Onboarding Documentation Processing", "Phase 2: Day 1 Checklist", "HR Team"),
+                        ("Security Training and Warehouse Entry Processing", "Phase 2: Day 1 Checklist", "Security Team"),
+                        ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
+                        ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("Warehouse Operations Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
+                        ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
+                        ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
+                        ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                        ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team")
+                    ]
+                    for t_name, p_name, own in default_tasks:
+                        cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to) VALUES (?, ?, ?, ?)", (new_id, t_name, p_name, own))
                     
-                    # 3. DIRECT WHATSAPP ACTION BUTTON
+                    conn.commit()
+                    st.success(f"🎉 Success: Employee {input_name} ({input_emp_id}) added alongside all roadmap tasks!")
+                    
+                    # 4. DIRECT WHATSAPP ACTION LINK
                     st.subheader("📲 Send Credentials")
                     wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
                     wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
@@ -567,7 +605,7 @@ elif menu == "➕ Add New Employee":
                     st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
                     
                 except sqlite3.IntegrityError:
-                    st.error("Error: This Employee ID already exists in the database.")
+                    st.error("Error: This Employee ID already exists inside system memory.")
                 conn.close()
 
 # --- WORKSPACE 3: CHECKLIST VIEW ---
@@ -826,14 +864,18 @@ elif menu == "📤 Export Reports":
 # --- WORKSPACE 9: SYSTEM ADMINISTRATION CONTROL PANEL ---
 elif menu == "🚨 System Administration":
     st.title("🚨 Enterprise Control Room & System Administration")
+    
+    # Initialize the delete checkbox confirmation state mapping cleanly
+    if "p_check_state" not in st.session_state:
+        st.session_state["p_check_state"] = False
+
     adm_c1, adm_c2 = st.columns([1, 1], gap="large")
     with adm_c1:
-        # TEMPORARY DEBUGGING TOOL
         st.subheader("🔍 Debug: View All Accounts")
-        if st.button("List All User Accounts"):
+        if st.button("List All User Accounts", use_container_width=True):
             conn = get_db_connection()
             df_users = pd.read_sql_query("SELECT employee_id, role_type FROM user_accounts", conn)
-            st.dataframe(df_users)
+            st.dataframe(df_users, use_container_width=True)
             conn.close()
         st.markdown("---")
         st.subheader("➕ Create New Admin Account")
@@ -922,14 +964,23 @@ elif menu == "🚨 System Administration":
         else:
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
-            p_check = st.checkbox("Confirm permanent account removal deletion.")
-            if st.button("Permanently Erase Profile", type="primary") and p_check:
-                cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                tgt_emp_code = cursor.fetchone()[0]
-                cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
-                cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
-                cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                conn.commit()
-                st.success("Purged out completely.")
-                st.rerun()
+            
+            # Tie checkbox value directly to session state
+            p_check = st.checkbox("Confirm permanent account removal deletion.", value=st.session_state["p_check_state"])
+            
+            if st.button("Permanently Erase Profile", type="primary"):
+                if p_check:
+                    cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                    tgt_emp_code = cursor.fetchone()[0]
+                    cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
+                    cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
+                    cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                    conn.commit()
+                    
+                    st.success("Purged out completely.")
+                    # Automatically uncheck the box for safety on rerun
+                    st.session_state["p_check_state"] = False
+                    st.rerun()
+                else:
+                    st.error("Action Intercepted: You must check the confirmation box first.")
         conn.close()
