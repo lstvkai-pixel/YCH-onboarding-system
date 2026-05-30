@@ -54,7 +54,7 @@ def init_database():
         except sqlite3.OperationalError:
             pass
 
-    # 2. Detailed Historical Training Hours Table (For Monthly Auditing)
+    # 2. Detailed Historical Training Hours Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS training_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +81,18 @@ def init_database():
             FOREIGN KEY(hire_id) REFERENCES new_hires(id)
         )
     ''')
+
+    # 4. Signed Documents Vault Storage Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS signed_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            hire_id INTEGER,
+            doc_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            date_uploaded TEXT NOT NULL,
+            FOREIGN KEY(hire_id) REFERENCES new_hires(id)
+        )
+    ''')
     
     # System Migration Mappings
     cursor.execute("UPDATE tasks SET phase = 'Phase 1: Pre-boarding Checklist' WHERE phase LIKE 'Group 1%'")
@@ -90,7 +102,7 @@ def init_database():
     cursor.execute("UPDATE tasks SET assigned_to = 'Ops Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('SOP Orientation Completed', 'Work Instruction Training Completed', 'Warehouse Operations Training Completed', 'System/Application Training Completed', 'On-the-Job Training Completed')")
     cursor.execute("UPDATE tasks SET assigned_to = 'QA&EHS Team' WHERE phase LIKE 'Phase 3%' AND task_name IN ('Equipment Handling Training Completed', 'Safety Procedures Training Completed', 'Forklift Training Completed (If Applicable)', 'Technical Competency Assessment Completed')")
     
-    # 4. LMS Modules Storage Table
+    # 5. LMS Modules Storage Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lms_materials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,7 +113,7 @@ def init_database():
         )
     ''')
     
-    # 5. Certification Ledger Table
+    # 6. Certification Ledger Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS certifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,7 +125,7 @@ def init_database():
         )
     ''')
     
-    # 6. Feedback Tickets Engine Table
+    # 7. Feedback Tickets Engine Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS feedback_tickets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +138,7 @@ def init_database():
         )
     ''')
     
-    # 7. Corporate Announcement Bulletin Table
+    # 8. Corporate Announcement Bulletin Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +149,7 @@ def init_database():
         )
     ''')
     
-    # 8. Managers Reference List Table
+    # 9. Managers Reference List Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS managers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -277,7 +289,6 @@ if menu == "🏢 Corporate Experience Landing":
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # High Level Enterprise Metric Scorecards
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM new_hires WHERE status = 'Active'")
@@ -448,9 +459,8 @@ if menu == "🏢 Corporate Experience Landing":
             df_board.insert(0, 'Rank Medal', medals)
             st.dataframe(df_board, use_container_width=True, hide_index=True)
         else:
-            st.info(f"No training hours logged for the month: {selected_month_str}. Use 'Task Checklist View' to log hours under a specific date context!")
+            st.info(f"No training hours logged for the month: {selected_month_str}.")
             
-    # ✅ FIX: Evaluated separate tab context layout variable declarations
     with tab_news:
         st.subheader("📢 YCH Group Corporate News & Announcement Center")
         conn = get_db_connection()
@@ -467,7 +477,7 @@ if menu == "🏢 Corporate Experience Landing":
                 st.write(content)
                 st.markdown("---")
 
-# --- OTHER WORKSPACES (PRESERVED ALL FUNCTIONALITIES) ---
+# --- WORKSPACE 2: EMPLOYEE REGISTRATION ---
 elif menu == "➕ Add New Employee":
     st.title("➕ Roster New Workforce Profile")
     st.markdown("---")
@@ -531,6 +541,7 @@ elif menu == "➕ Add New Employee":
                 st.success("Successfully generated profile tracking layers.")
                 st.rerun()
 
+# --- WORKSPACE 3: CHECKLIST VIEW (WITH DOCUMENT VAULT LINK INTEGRATION) ---
 elif menu == "📋 Task Checklist View":
     st.title("📋 Phased Checklist Processing & Verification Layer")
     st.markdown("---")
@@ -547,6 +558,7 @@ elif menu == "📋 Task Checklist View":
         sel_id = employee_dict[sel_worker]
         worker_record = [a for a in active_dataset if a[0] == sel_id][0]
         p3_app, p4_app, p5_app = worker_record[3], worker_record[4], worker_record[5]
+        
         left_pane, right_pane = st.columns([2, 1])
         with left_pane:
             conn = get_db_connection()
@@ -575,7 +587,43 @@ elif menu == "📋 Task Checklist View":
                             st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
             conn.close()
+            
         with right_pane:
+            # ✅ NEW: Signed Documents Vault Upload Module Section
+            st.subheader("📂 Signed Documents Vault")
+            with st.form("vault_upload_form", clear_on_submit=True):
+                doc_title_input = st.text_input("Document Name / Description:", placeholder="e.g. Signed Employment Contract")
+                uploaded_doc_file = st.file_uploader("Upload Signed Document File (.pdf, .png, .jpg):", type=["pdf", "png", "jpg", "jpeg"])
+                if st.form_submit_button("🔒 Upload Document to Vault") and doc_title_input != "" and uploaded_doc_file is not None:
+                    os.makedirs("vault", exist_ok=True)
+                    clean_filename = f"vault/{sel_id}_{int(datetime.now().timestamp())}_{uploaded_doc_file.name}"
+                    with open(clean_filename, "wb") as f:
+                        f.write(uploaded_doc_file.getbuffer())
+                    
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO signed_documents (hire_id, doc_name, file_path, date_uploaded) VALUES (?, ?, ?, ?)", 
+                                   (sel_id, doc_title_input, clean_filename, datetime.now().strftime("%Y-%m-%d")))
+                    conn.commit()
+                    conn.close()
+                    st.success("Document uploaded securely to employee records vault!")
+                    st.rerun()
+            
+            # Display uploaded files for selected employee with clean download targets
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, doc_name, file_path FROM signed_documents WHERE hire_id = ?", (sel_id,))
+            saved_docs = cursor.fetchall()
+            conn.close()
+            
+            if saved_docs:
+                st.markdown("##### 📁 Archived Documents Vault Logs")
+                for d_id, d_name, d_path in saved_docs:
+                    if os.path.exists(d_path):
+                        with open(d_path, "rb") as file_bytes:
+                            st.download_button(label=f"📥 Download {d_name}", data=file_bytes.read(), file_name=os.path.basename(d_path), key=f"dl_vdoc_{d_id}", use_container_width=True)
+            st.markdown("<hr>", unsafe_allow_html=True)
+
             st.subheader("🛡️ Manager Sign-off Portal")
             conn = get_db_connection()
             cursor = conn.cursor()
