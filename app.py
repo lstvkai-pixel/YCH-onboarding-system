@@ -22,25 +22,22 @@ def init_database():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Base New Hires Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS new_hires (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT NOT NULL DEFAULT 'N/A',
-            mobile_number TEXT NOT NULL DEFAULT 'N/A',
-            name TEXT NOT NULL,
-            role TEXT NOT NULL,
-            department TEXT NOT NULL DEFAULT 'HR Team',
-            manager TEXT NOT NULL,
-            start_date TEXT NOT NULL,
-            gender TEXT NOT NULL DEFAULT 'Male',
-            status TEXT NOT NULL DEFAULT 'Active',
-            photo_path TEXT DEFAULT NULL,
-            phase3_approved INTEGER DEFAULT 0,
-            phase4_approved INTEGER DEFAULT 0,
-            phase5_approved INTEGER DEFAULT 0
-        )
-    ''')
+    # Create tables (Base)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
+    
+    # FORCE REPAIR: This block checks for the column and rebuilds the table if it's missing
+    cursor.execute("PRAGMA table_info(user_accounts)")
+    columns = [info[1] for info in cursor.fetchall()]
+    
+    if 'force_password_change' not in columns:
+        cursor.execute("DROP TABLE IF EXISTS user_accounts")
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', force_password_change INTEGER DEFAULT 1)''')
+    cursor.execute("INSERT OR IGNORE INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES ('HR0001', 'YCHADMIN', 'Employer', 0)")
+    
+    # ... (Keep all other table creation code exactly the same as before) ...
+    conn.commit()
+    conn.close()
 
     # ✅ FIXED: Drop the old table so the new one can be built correctly
     cursor.execute("DROP TABLE IF EXISTS user_accounts")
