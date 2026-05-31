@@ -1,6 +1,5 @@
 import sqlite3
 import streamlit as st
-import streamlit.components.v1 as components
 import urllib.parse
 import re
 import pandas as pd
@@ -287,11 +286,8 @@ if st.session_state.get("change_pwd", False):
 # Render custom top bar for logged-in users
 render_top_header()
 
-# ==========================================
-# RENDER SIDEBAR LOGO & BUTTON
-# ==========================================
+# Render Logo right above the terminate button in the Sidebar
 st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
-
 st.sidebar.markdown('''
     <style>
         [data-testid="stSidebar"] img {
@@ -303,30 +299,23 @@ st.sidebar.markdown('''
 ''', unsafe_allow_html=True)
 if os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_container_width=True)
-
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
-st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
-st.sidebar.markdown(
-    f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
-    unsafe_allow_html=True
-)
-st.sidebar.markdown(f"🔰 **Access Level:** {st.session_state['user_role']} Dashboard")
-st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
-
-# ADDED SYNC REFRESH BUTTON SO DATA IS NOT OUT OF DATE ACROSS TABS
-if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
-    st.rerun()
-
-
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
 # ==========================================
 if st.session_state["user_role"] == "Employee":
+    st.sidebar.markdown(
+        f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
+        unsafe_allow_html=True
+    )
+    
+    st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
+    st.sidebar.markdown("---")
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
@@ -375,19 +364,18 @@ if st.session_state["user_role"] == "Employee":
             
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("#### 📋 Detailed Individual Milestones Task Checklist Logs")
-            
-            conn_emp = get_db_connection()
-            cursor_emp = conn_emp.cursor()
             for current_phase in PHASE_GROUPS:
                 with st.expander(f"📌 {current_phase} (Progress Fraction: {p_breakdown[current_phase.split(':')[0]]}%)"):
-                    cursor_emp.execute("SELECT task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (h_id, current_phase))
-                    ptasks = cursor_emp.fetchall()
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (h_id, current_phase))
+                    ptasks = cursor.fetchall()
+                    conn.close()
                     
                     if not ptasks: st.caption("_No roadmap parameters verified onto this phase container block currently._")
                     for t_name, team, comp in ptasks:
                         icon_s = "✅ Complete" if comp else "⏳ Pending Processing"
                         st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
-            conn_emp.close()
 
         elif emp_menu == "📚 Library Training center":
             st.markdown("### 📚 Distributed Training Document Library")
@@ -414,9 +402,9 @@ if st.session_state["user_role"] == "Employee":
                                 with open(f_path, "rb") as f:
                                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                                 
-                                # Use components.html to bypass Streamlit's markdown sanitization which strips <embed> tags
-                                pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" type="application/pdf" width="100%" height="700px" />'
-                                components.html(pdf_display, height=710)
+                                # Use native markdown iframe to bypass Edge/Chrome Sandboxing blocks
+                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="800px" style="border: none;"></iframe>'
+                                st.markdown(pdf_display, unsafe_allow_html=True)
                             else:
                                 st.info("Preview not available for this file type.")
                     st.markdown("---")
@@ -780,6 +768,7 @@ elif st.session_state["user_role"] == "Employer":
 
                 st.markdown("#### 🛡️ Manager Sign-off Portal")
                 
+                # Check if any documents are uploaded before allowing approval
                 has_docs = len(saved_docs) > 0
                 if not has_docs:
                     st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
