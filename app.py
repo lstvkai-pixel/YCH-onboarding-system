@@ -63,20 +63,18 @@ st.markdown("""
             margin-bottom: 15px;
             height: 125px;
         }
-        
-        /* THE FIX: Styles the User Code box correctly */
-        .user-code-box {
-            background-color: #FFFFFF !important;
-            color: #002060 !important;
-            padding: 10px !important;
-            border-radius: 6px !important;
-            text-align: center !important;
-            font-weight: bold !important;
-            margin-bottom: 15px !important;
-            border: 1px solid #FFFFFF !important;
-        }
 
         [data-testid="stSidebar"] button {
+            background-color: #002060 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #002060 !important;
+            box-shadow: none !important;
+        }
+        
+        /* Force the button to stay the same color when hovered or active */
+        [data-testid="stSidebar"] button:hover,
+        [data-testid="stSidebar"] button:active,
+        [data-testid="stSidebar"] button:focus {
             background-color: #002060 !important;
             color: #FFFFFF !important;
             border: 1px solid #002060 !important;
@@ -88,6 +86,7 @@ st.markdown("""
 # Sidebar Logo
 if os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_column_width=True)    
+
 # ==========================================
 # CORE CONSTANTS, THEME STRINGS & PARAMETERS
 # ==========================================
@@ -110,16 +109,6 @@ PHASE_GROUPS = [
 
 st.markdown("""
     <style>
-        .stApp { background-color: #F8FAFC; }
-        .ych-card {
-            background-color: #FFFFFF;
-            border-radius: 8px;
-            padding: 18px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            border-left: 5px solid #003366;
-            margin-bottom: 15px;
-            height: 125px;
-        }
         .ych-kpi-val {
             font-size: 32px; font-weight: bold; color: #003366; line-height: 1.1; margin-top: 4px;
         }
@@ -256,47 +245,15 @@ if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
-st.markdown("""
-    <style>
-        /* Target buttons inside the sidebar specifically */
-        [data-testid="stSidebar"] button {
-            background-color: #002060 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #002060 !important;
-            box-shadow: none !important;
-        }
-
-        /* Force the button to stay the same color when hovered or active */
-        [data-testid="stSidebar"] button:hover,
-        [data-testid="stSidebar"] button:active,
-        [data-testid="stSidebar"] button:focus {
-            background-color: #002060 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #002060 !important;
-            box-shadow: none !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
 # ==========================================
 if st.session_state["user_role"] == "Employee":
-    st.sidebar.markdown(f"👤 **User Code:** `{st.session_state['username']}`")
-    st.markdown("""
-    <style>
-        .user-code-box {
-            background-color: #002060 !important;
-            color: #002060 !important;
-            padding: 10px !important;
-            border-radius: 6px !important;
-            text-align: center !important;
-            font-weight: bold !important;
-            margin-bottom: 15px !important;
-            border: 1px solid #002060 !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
+    # FIXED: Replaced backticks with an inline styled span for dark blue backgrounds
+    st.sidebar.markdown(
+        f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
+        unsafe_allow_html=True
+    )
     
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
