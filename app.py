@@ -5,6 +5,7 @@ import re
 import pandas as pd
 import io
 import os
+import base64
 from datetime import datetime, timedelta
 import plotly.express as px
 
@@ -128,6 +129,14 @@ st.markdown("""
             transition: all 0.2s;
         }
         .ych-action-btn:hover { opacity: 0.9; }
+        
+        /* Sidebar Logo White Box */
+        [data-testid="stSidebar"] img {
+            background-color: #FFFFFF;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -223,8 +232,8 @@ for state_key, default_value in [
     ("username", None),
     ("user_role", None),
     ("change_pwd", False),
-    ("confirm_delete_stage", False), # Used for Danger Zone Popup
-    ("target_purge_id", None), # Used for Danger Zone Target
+    ("confirm_delete_stage", False), 
+    ("target_purge_id", None), 
     ("ann_posted_success", False)
 ]:
     if state_key not in st.session_state:
@@ -274,39 +283,33 @@ if st.session_state.get("change_pwd", False):
             st.error("Password cannot be blank.")
     st.stop()
 
-# Render custom top bar for logged-in users
-render_top_header()
-
-# Render Logo right above the terminate button in the Sidebar
-st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
-st.sidebar.markdown('''
-    <style>
-        [data-testid="stSidebar"] img {
-            background-color: #FFFFFF;
-            padding: 15px;
-            border-radius: 8px;
-        }
-    </style>
-''', unsafe_allow_html=True)
+# ==========================================
+# RENDER SIDEBAR (MATCHING MOCKUP LAYOUT)
+# ==========================================
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
 if os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_container_width=True)
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
+st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
+st.sidebar.markdown(
+    f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
+    unsafe_allow_html=True
+)
+st.sidebar.markdown(f"🔰 **Access Level:** {st.session_state['user_role']} Dashboard")
+st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
+
+
+# Render custom top bar for logged-in users
+render_top_header()
+
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
 # ==========================================
 if st.session_state["user_role"] == "Employee":
-    st.sidebar.markdown(
-        f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
-        unsafe_allow_html=True
-    )
-    
-    st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
-    st.sidebar.markdown("---")
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
@@ -384,8 +387,20 @@ if st.session_state["user_role"] == "Employee":
                 for title, d_type, f_path in items:
                     st.markdown(f"📄 **{title}** `[{d_type}]` — _Read and understand guidelines carefully._")
                     if f_path and os.path.exists(f_path):
-                        with open(f_path, "rb") as file_bytes:
-                            st.download_button(label=f"📥 Download {title} Manual", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"emp_dl_{title}")
+                        file_ext = f_path.split('.')[-1].lower()
+                        
+                        # Replace download button with an inline viewer to prevent downloads
+                        with st.expander(f"👁️ Open and Read: {title}"):
+                            if file_ext in ['png', 'jpg', 'jpeg']:
+                                st.image(f_path, use_container_width=True)
+                            elif file_ext == 'pdf':
+                                with open(f_path, "rb") as f:
+                                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                                # #toolbar=0&navpanes=0 hides the download/print UI in most modern browsers
+                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=0" width="100%" height="700px" type="application/pdf"></iframe>'
+                                st.markdown(pdf_display, unsafe_allow_html=True)
+                            else:
+                                st.info("Preview not available for this file type.")
                     st.markdown("---")
     st.stop()
 
@@ -614,7 +629,6 @@ elif st.session_state["user_role"] == "Employer":
                         
                         cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                         
-                        # Added missing comma here
                         default_tasks = [
                             ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                             ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
