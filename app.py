@@ -278,6 +278,11 @@ if st.session_state.get("change_pwd", False):
 # Render custom top bar for logged-in users
 render_top_header()
 
+# Render Logo right above the terminate button in the Sidebar
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
+if os.path.exists("YCH-EX.jpeg"):
+    st.sidebar.image("YCH-EX.jpeg", use_container_width=True)
+
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
@@ -392,9 +397,6 @@ menu = st.sidebar.radio(
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
 if menu == "🏠 Corporate Experience Landing":
-    st.markdown("<h3 style='color: #003366; text-align: center; font-weight: 700; margin-top:-10px;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #0078D4; text-align: center; margin-top: -15px;'>Nurturing Talent, Driving Operational Excellence, Building Careers</p>", unsafe_allow_html=True)
-    
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     
     # High Level Enterprise Metric Scorecards
@@ -513,6 +515,10 @@ if menu == "🏠 Corporate Experience Landing":
                                 </a>
                             </div>
                         """, unsafe_allow_html=True)
+                        
+                        if ovr_pct == 100 and p3_a and p4_a and p5_a:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.success("🎓 Onboarding Fully Completed!")
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     m_cols = st.columns(5)
@@ -730,24 +736,40 @@ elif menu == "📋 Task Checklist View":
             st.markdown("<hr>", unsafe_allow_html=True)
 
             st.markdown("#### 🛡️ Manager Sign-off Portal")
+            
+            # Check if any documents are uploaded before allowing approval
+            has_docs = len(saved_docs) > 0
+            if not has_docs:
+                st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
+
             conn = get_db_connection()
             cursor = conn.cursor()
+            
+            def render_signed_off(text):
+                st.markdown(f"<div style='background-color: #EAF4EB; color: #1E8E3E; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center;'><span style='font-size: 18px; margin-right: 10px;'>✔️</span> <b>{text}</b></div>", unsafe_allow_html=True)
+
             if not p3_app:
-                if st.button("✅ Approve Phase 3", use_container_width=True):
+                if st.button("✅ Approve Phase 3", use_container_width=True, disabled=not has_docs):
                     cursor.execute("UPDATE new_hires SET phase3_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: st.success("✔️ Phase 3 Signed Off")
+            else: 
+                render_signed_off("Phase 3 Signed Off")
+                
             if not p4_app:
-                if st.button("✅ Approve Phase 4", use_container_width=True):
+                if st.button("✅ Approve Phase 4", use_container_width=True, disabled=not has_docs):
                     cursor.execute("UPDATE new_hires SET phase4_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: st.success("✔️ Phase 4 Signed Off")
+            else: 
+                render_signed_off("Phase 4 Signed Off")
+                
             if not p5_app:
-                if st.button("✅ Approve Phase 5", use_container_width=True):
+                if st.button("✅ Approve Phase 5", use_container_width=True, disabled=not has_docs):
                     cursor.execute("UPDATE new_hires SET phase5_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: st.success("✔️ Phase 5 Signed Off")
+            else: 
+                render_signed_off("Phase 5 Signed Off")
             conn.close()
+
 
 # --- WORKSPACE: RULES AND GUIDELINES ---
 elif menu == "📚 Rules and Guidelines":
