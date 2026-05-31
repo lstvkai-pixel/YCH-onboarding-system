@@ -1,5 +1,6 @@
 import sqlite3
 import streamlit as st
+import streamlit.components.v1 as components
 import urllib.parse
 import re
 import pandas as pd
@@ -129,14 +130,6 @@ st.markdown("""
             transition: all 0.2s;
         }
         .ych-action-btn:hover { opacity: 0.9; }
-        
-        /* Sidebar Logo White Box */
-        [data-testid="stSidebar"] img {
-            background-color: #FFFFFF;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -283,32 +276,39 @@ if st.session_state.get("change_pwd", False):
             st.error("Password cannot be blank.")
     st.stop()
 
-# ==========================================
-# RENDER SIDEBAR (MATCHING MOCKUP LAYOUT)
-# ==========================================
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+# Render custom top bar for logged-in users
+render_top_header()
+
+# Render Logo right above the terminate button in the Sidebar
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown('''
+    <style>
+        [data-testid="stSidebar"] img {
+            background-color: #FFFFFF;
+            padding: 15px;
+            border-radius: 8px;
+        }
+    </style>
+''', unsafe_allow_html=True)
 if os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_container_width=True)
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     for key in list(st.session_state.keys()): del st.session_state[key]
     st.rerun()
 
-st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
-st.sidebar.markdown(
-    f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
-    unsafe_allow_html=True
-)
-st.sidebar.markdown(f"🔰 **Access Level:** {st.session_state['user_role']} Dashboard")
-st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
-
-# Render custom top bar for logged-in users
-render_top_header()
-
 # ==========================================
 # HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
 # ==========================================
 if st.session_state["user_role"] == "Employee":
+    st.sidebar.markdown(
+        f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
+        unsafe_allow_html=True
+    )
+    
+    st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
+    st.sidebar.markdown("---")
     
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
@@ -395,9 +395,10 @@ if st.session_state["user_role"] == "Employee":
                             elif file_ext == 'pdf':
                                 with open(f_path, "rb") as f:
                                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                                # Used <embed> to fix the Microsoft Edge block error
+                                
+                                # Use components.html to bypass Streamlit's markdown sanitization which strips <embed> tags
                                 pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" type="application/pdf" width="100%" height="700px" />'
-                                st.markdown(pdf_display, unsafe_allow_html=True)
+                                components.html(pdf_display, height=710)
                             else:
                                 st.info("Preview not available for this file type.")
                     st.markdown("---")
@@ -761,6 +762,7 @@ elif st.session_state["user_role"] == "Employer":
 
                 st.markdown("#### 🛡️ Manager Sign-off Portal")
                 
+                # Check if any documents are uploaded before allowing approval
                 has_docs = len(saved_docs) > 0
                 if not has_docs:
                     st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
