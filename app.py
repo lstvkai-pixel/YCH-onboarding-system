@@ -363,7 +363,7 @@ if st.session_state["user_role"] == "Employee":
                         st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
 
         elif emp_menu == "📚 Library Training center":
-            st.title("📚 Distributed LMS Asset Training Document Library")
+            st.title("📚 Distributed Training Document Library")
             st.markdown("---")
             
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
