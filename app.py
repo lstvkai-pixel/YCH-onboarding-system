@@ -995,7 +995,7 @@ elif menu == "🚨 System Administration":
                 else: st.error("Validation Error: Please fill out both target fields.")
 
         st.markdown("<br><hr><br>", unsafe_allow_html=True)
-        st.subheader("🚨 Danger Zone: Purge Roster Accounts")
+        st.subheader("🚨 Danger Zone: Delete Roster Accounts")
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, employee_id, name FROM new_hires")
