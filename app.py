@@ -131,28 +131,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Custom Top Header Function
+# Custom Top Header Function (WITH LOGO)
 def render_top_header():
     user_initial = st.session_state['username'][0].upper() if st.session_state['username'] else "U"
-    st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; padding: 15px 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-bottom: 3px solid #EAA221; margin-bottom: 25px;">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div>
-                    <h2 style="color: #002060; margin: 0; font-weight: 900; letter-spacing: 1px; font-size: 24px;">YCH EMPLOYEE EXPERIENCE</h2>
-                    <span style="color: #EAA221; font-weight: 600; font-size: 12px; letter-spacing: 2px;">WHERE PEOPLE CONNECT</span>
-                </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 15px;">
+    
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        if os.path.exists("YCH-EX.jpeg"):
+            st.image("YCH-EX.jpeg", width=350)
+        else:
+            st.markdown('''
+                <h2 style="color: #002060; margin: 0; font-weight: 900; letter-spacing: 1px;">YCH EMPLOYEE EXPERIENCE</h2>
+                <span style="color: #EAA221; font-weight: 600; font-size: 12px; letter-spacing: 2px;">WHERE PEOPLE CONNECT</span>
+            ''', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; height: 100%; padding-top: 10px;">
                 <div style="text-align: right;">
                     <div style="color: #1E293B; font-weight: bold; font-size: 14px;">{st.session_state['username']}</div>
                     <div style="color: #64748B; font-size: 12px;">{st.session_state['user_role']}</div>
                 </div>
-                <div style="background-color: #002060; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px;">
+                <div style="background-color: #002060; color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px;">
                     {user_initial}
                 </div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        
+    st.markdown("<hr style='margin-top: 5px; margin-bottom: 25px; border: none; border-top: 3px solid #EAA221;'>", unsafe_allow_html=True)
+
 
 # ==========================================
 # CORE CONSTANTS & PARAMETERS
@@ -223,9 +231,9 @@ for state_key, default_value in [
     ("username", None),
     ("user_role", None),
     ("change_pwd", False),
-    ("delete_checkbox", False), # Used for Danger Zone auto-clear
-    ("confirm_delete_stage", False), # Used for Danger Zone Popup
-    ("target_purge_id", None), # Used for Danger Zone Target
+    ("delete_checkbox", False), 
+    ("confirm_delete_stage", False), 
+    ("target_purge_id", None), 
     ("ann_posted_success", False)
 ]:
     if state_key not in st.session_state:
@@ -392,9 +400,6 @@ menu = st.sidebar.radio(
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
 if menu == "🏠 Corporate Experience Landing":
-    st.markdown("<h3 style='color: #003366; text-align: center; font-weight: 700; margin-top:-10px;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #0078D4; text-align: center; margin-top: -15px;'>Nurturing Talent, Driving Operational Excellence, Building Careers</p>", unsafe_allow_html=True)
-    
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     
     # High Level Enterprise Metric Scorecards
@@ -513,6 +518,10 @@ if menu == "🏠 Corporate Experience Landing":
                                 </a>
                             </div>
                         """, unsafe_allow_html=True)
+                        
+                        if ovr_pct == 100 and p3_a and p4_a and p5_a:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.success("🎓 Onboarding Fully Completed!")
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     m_cols = st.columns(5)
@@ -730,23 +739,38 @@ elif menu == "📋 Task Checklist View":
             st.markdown("<hr>", unsafe_allow_html=True)
 
             st.markdown("#### 🛡️ Manager Sign-off Portal")
+            
+            # Check if any documents are uploaded before allowing approval
+            has_docs = len(saved_docs) > 0
+            if not has_docs:
+                st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
+
             conn = get_db_connection()
             cursor = conn.cursor()
+            
+            def render_signed_off(text):
+                st.markdown(f"<div style='background-color: #EAF4EB; color: #1E8E3E; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center;'><span style='font-size: 18px; margin-right: 10px;'>✔️</span> <b>{text}</b></div>", unsafe_allow_html=True)
+
             if not p3_app:
-                if st.button("✅ Approve Phase 3", use_container_width=True):
+                if st.button("✅ Approve Phase 3", use_container_width=True, disabled=not has_docs):
                     cursor.execute("UPDATE new_hires SET phase3_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: st.success("✔️ Phase 3 Signed Off")
+            else: 
+                render_signed_off("Phase 3 Signed Off")
+                
             if not p4_app:
-                if st.button("✅ Approve Phase 4", use_container_width=True):
+                if st.button("✅ Approve Phase 4", use_container_width=True, disabled=not has_docs):
                     cursor.execute("UPDATE new_hires SET phase4_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: st.success("✔️ Phase 4 Signed Off")
+            else: 
+                render_signed_off("Phase 4 Signed Off")
+                
             if not p5_app:
-                if st.button("✅ Approve Phase 5", use_container_width=True):
+                if st.button("✅ Approve Phase 5", use_container_width=True, disabled=not has_docs):
                     cursor.execute("UPDATE new_hires SET phase5_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: st.success("✔️ Phase 5 Signed Off")
+            else: 
+                render_signed_off("Phase 5 Signed Off")
             conn.close()
 
 # --- WORKSPACE: RULES AND GUIDELINES ---
