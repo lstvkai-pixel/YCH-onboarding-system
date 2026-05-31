@@ -131,36 +131,28 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Custom Top Header Function (WITH LOGO)
+# Custom Top Header Function
 def render_top_header():
     user_initial = st.session_state['username'][0].upper() if st.session_state['username'] else "U"
-    
-    col1, col2 = st.columns([4, 1])
-    
-    with col1:
-        if os.path.exists("YCH-EX.jpeg"):
-            st.image("YCH-EX.jpeg", width=350)
-        else:
-            st.markdown('''
-                <h2 style="color: #002060; margin: 0; font-weight: 900; letter-spacing: 1px;">YCH EMPLOYEE EXPERIENCE</h2>
-                <span style="color: #EAA221; font-weight: 600; font-size: 12px; letter-spacing: 2px;">WHERE PEOPLE CONNECT</span>
-            ''', unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(f"""
-            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; height: 100%; padding-top: 10px;">
+    st.markdown(f"""
+        <div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; padding: 15px 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-bottom: 3px solid #EAA221; margin-bottom: 25px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div>
+                    <h2 style="color: #002060; margin: 0; font-weight: 900; letter-spacing: 1px; font-size: 24px;">YCH EMPLOYEE EXPERIENCE</h2>
+                    <span style="color: #EAA221; font-weight: 600; font-size: 12px; letter-spacing: 2px;">WHERE PEOPLE CONNECT</span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
                 <div style="text-align: right;">
                     <div style="color: #1E293B; font-weight: bold; font-size: 14px;">{st.session_state['username']}</div>
                     <div style="color: #64748B; font-size: 12px;">{st.session_state['user_role']}</div>
                 </div>
-                <div style="background-color: #002060; color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px;">
+                <div style="background-color: #002060; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px;">
                     {user_initial}
                 </div>
             </div>
-        """, unsafe_allow_html=True)
-        
-    st.markdown("<hr style='margin-top: 5px; margin-bottom: 25px; border: none; border-top: 3px solid #EAA221;'>", unsafe_allow_html=True)
-
+        </div>
+    """, unsafe_allow_html=True)
 
 # ==========================================
 # CORE CONSTANTS & PARAMETERS
@@ -400,6 +392,9 @@ menu = st.sidebar.radio(
 
 # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
 if menu == "🏠 Corporate Experience Landing":
+    st.markdown("<h3 style='color: #003366; text-align: center; font-weight: 700; margin-top:-10px;'>YCH GROUP EMPLOYEE EXPERIENCE PLATFORM</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #0078D4; text-align: center; margin-top: -15px;'>Nurturing Talent, Driving Operational Excellence, Building Careers</p>", unsafe_allow_html=True)
+    
     st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
     
     # High Level Enterprise Metric Scorecards
@@ -518,10 +513,6 @@ if menu == "🏠 Corporate Experience Landing":
                                 </a>
                             </div>
                         """, unsafe_allow_html=True)
-                        
-                        if ovr_pct == 100 and p3_a and p4_a and p5_a:
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            st.success("🎓 Onboarding Fully Completed!")
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     m_cols = st.columns(5)
