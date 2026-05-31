@@ -302,7 +302,6 @@ st.sidebar.markdown(
 st.sidebar.markdown(f"🔰 **Access Level:** {st.session_state['user_role']} Dashboard")
 st.sidebar.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
 
-
 # Render custom top bar for logged-in users
 render_top_header()
 
@@ -396,8 +395,8 @@ if st.session_state["user_role"] == "Employee":
                             elif file_ext == 'pdf':
                                 with open(f_path, "rb") as f:
                                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                                # #toolbar=0&navpanes=0 hides the download/print UI in most modern browsers
-                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0&scrollbar=0" width="100%" height="700px" type="application/pdf"></iframe>'
+                                # Used <embed> to fix the Microsoft Edge block error
+                                pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" type="application/pdf" width="100%" height="700px" />'
                                 st.markdown(pdf_display, unsafe_allow_html=True)
                             else:
                                 st.info("Preview not available for this file type.")
@@ -762,7 +761,6 @@ elif st.session_state["user_role"] == "Employer":
 
                 st.markdown("#### 🛡️ Manager Sign-off Portal")
                 
-                # Check if any documents are uploaded before allowing approval
                 has_docs = len(saved_docs) > 0
                 if not has_docs:
                     st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
