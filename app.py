@@ -223,7 +223,6 @@ for state_key, default_value in [
     ("username", None),
     ("user_role", None),
     ("change_pwd", False),
-    ("delete_checkbox", False), # Used for Danger Zone auto-clear
     ("confirm_delete_stage", False), # Used for Danger Zone Popup
     ("target_purge_id", None), # Used for Danger Zone Target
     ("ann_posted_success", False)
@@ -279,9 +278,7 @@ if st.session_state.get("change_pwd", False):
 render_top_header()
 
 # Render Logo right above the terminate button in the Sidebar
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-
-# Added styling for white box behind the logo to match your image
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
 st.sidebar.markdown('''
     <style>
         [data-testid="stSidebar"] img {
@@ -291,11 +288,8 @@ st.sidebar.markdown('''
         }
     </style>
 ''', unsafe_allow_html=True)
-
 if os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_container_width=True)
-
-# ADDED GAP HERE: Creates space so the logo is "a little above" the button
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
@@ -1042,7 +1036,8 @@ elif st.session_state["user_role"] == "Employer":
                         
                         # Reset states to hide popup and clear checkbox
                         st.session_state.confirm_delete_stage = False
-                        st.session_state.delete_checkbox = False 
+                        if "delete_checkbox" in st.session_state:
+                            del st.session_state["delete_checkbox"]
                         st.session_state.target_purge_id = None
                         st.rerun()
                 
@@ -1050,7 +1045,8 @@ elif st.session_state["user_role"] == "Employer":
                     if st.button("❌ CANCEL", use_container_width=True):
                         # Hide the popup and clear the checkbox if they cancel
                         st.session_state.confirm_delete_stage = False
-                        st.session_state.delete_checkbox = False 
+                        if "delete_checkbox" in st.session_state:
+                            del st.session_state["delete_checkbox"]
                         st.rerun()
                         
         conn.close()
