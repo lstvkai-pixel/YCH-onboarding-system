@@ -231,9 +231,9 @@ for state_key, default_value in [
     ("username", None),
     ("user_role", None),
     ("change_pwd", False),
-    ("delete_checkbox", False), 
-    ("confirm_delete_stage", False), 
-    ("target_purge_id", None), 
+    ("delete_checkbox", False), # Used for Danger Zone auto-clear
+    ("confirm_delete_stage", False), # Used for Danger Zone Popup
+    ("target_purge_id", None), # Used for Danger Zone Target
     ("ann_posted_success", False)
 ]:
     if state_key not in st.session_state:
@@ -739,38 +739,23 @@ elif menu == "📋 Task Checklist View":
             st.markdown("<hr>", unsafe_allow_html=True)
 
             st.markdown("#### 🛡️ Manager Sign-off Portal")
-            
-            # Check if any documents are uploaded before allowing approval
-            has_docs = len(saved_docs) > 0
-            if not has_docs:
-                st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
-
             conn = get_db_connection()
             cursor = conn.cursor()
-            
-            def render_signed_off(text):
-                st.markdown(f"<div style='background-color: #EAF4EB; color: #1E8E3E; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center;'><span style='font-size: 18px; margin-right: 10px;'>✔️</span> <b>{text}</b></div>", unsafe_allow_html=True)
-
             if not p3_app:
-                if st.button("✅ Approve Phase 3", use_container_width=True, disabled=not has_docs):
+                if st.button("✅ Approve Phase 3", use_container_width=True):
                     cursor.execute("UPDATE new_hires SET phase3_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: 
-                render_signed_off("Phase 3 Signed Off")
-                
+            else: st.success("✔️ Phase 3 Signed Off")
             if not p4_app:
-                if st.button("✅ Approve Phase 4", use_container_width=True, disabled=not has_docs):
+                if st.button("✅ Approve Phase 4", use_container_width=True):
                     cursor.execute("UPDATE new_hires SET phase4_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: 
-                render_signed_off("Phase 4 Signed Off")
-                
+            else: st.success("✔️ Phase 4 Signed Off")
             if not p5_app:
-                if st.button("✅ Approve Phase 5", use_container_width=True, disabled=not has_docs):
+                if st.button("✅ Approve Phase 5", use_container_width=True):
                     cursor.execute("UPDATE new_hires SET phase5_approved = 1 WHERE id = ?", (sel_id,))
                     conn.commit(); st.rerun()
-            else: 
-                render_signed_off("Phase 5 Signed Off")
+            else: st.success("✔️ Phase 5 Signed Off")
             conn.close()
 
 # --- WORKSPACE: RULES AND GUIDELINES ---
