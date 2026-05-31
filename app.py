@@ -616,6 +616,7 @@ elif st.session_state["user_role"] == "Employer":
                         
                         default_tasks = [
                             ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
+                            ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team")
                             ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
                             ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                             ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
@@ -630,7 +631,6 @@ elif st.session_state["user_role"] == "Employer":
                             ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
                             ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
                             ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
-                            ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "QA&EHS Team")
                         ]
                         for t_name, p_name, own in default_tasks:
                             cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to) VALUES (?, ?, ?, ?)", (new_id, t_name, p_name, own))
