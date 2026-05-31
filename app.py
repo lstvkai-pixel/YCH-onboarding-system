@@ -574,7 +574,7 @@ elif menu == "➕ Add New Employee":
     manager_options = [r[0] for r in cursor.fetchall()]
     conn.close()
     
-    with st.form("master_reg_form_v2", clear_on_submit=False):
+    with st.form("master_reg_form_v2", clear_on_submit=True):
         input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format: SG0001").strip().upper()
         input_name = st.text_input("Candidate Full Name:")
         input_mobile = st.text_input("Mobile Number (Numbers only, e.g. 639123456789):").strip()
@@ -585,21 +585,30 @@ elif menu == "➕ Add New Employee":
         input_date_picker = st.date_input("Start Date:")
         uploaded_pic = st.file_uploader("Employee Photo:", type=["png", "jpg", "jpeg"])
         
-        submit_btn = st.form_submit_button("Deploy Onboarding Track")
-        
-        if submit_btn:
+        if st.form_submit_button("Deploy Onboarding Track"):
             clean_mob = re.sub(r'\D', '', input_mobile)
             if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
                 st.error("Validation Failed: ID must be 2 Letters + 4 Numbers.")
             elif input_name == "" or len(clean_mob) < 8:
                 st.error("Validation Failed: Check missing fields or mobile length.")
             else:
+                # Handle Photo Upload
+                photo_save_path = None
+                if uploaded_pic is not None:
+                    os.makedirs("employee_photos", exist_ok=True)
+                    photo_save_path = f"employee_photos/{input_emp_id}_{uploaded_pic.name}"
+                    with open(photo_save_path, "wb") as f:
+                        f.write(uploaded_pic.getbuffer())
+
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 try:
                     # 1. Save Employee
-                    cursor.execute("INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender))
+                    cursor.execute("""
+                        INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, photo_path) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (input_emp_id, input_mobile, input_name, input_role, input_dept, 
+                          input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, photo_save_path))
                     new_id = cursor.lastrowid
                     
                     # 2. Provision Account Access Ledger
@@ -639,7 +648,8 @@ elif menu == "➕ Add New Employee":
                     
                 except sqlite3.IntegrityError:
                     st.error("Error: This Employee ID already exists inside system memory.")
-                conn.close()
+                finally:
+                    conn.close()
 
 # --- WORKSPACE 3: CHECKLIST VIEW ---
 elif menu == "📋 Task Checklist View":
@@ -1009,14 +1019,23 @@ elif menu == "🚨 System Administration":
             
             if st.button("Permanently Erase Profile", type="primary"):
                 if p_check:
-                    cursor.execute("SELECT employee_id FROM new_hires WHERE id = ?", (del_dict[target_purge],))
-                    tgt_emp_code = cursor.fetchone()[0]
+                    # Get path before deleting record
+                    cursor.execute("SELECT employee_id, photo_path FROM new_hires WHERE id = ?", (del_dict[target_purge],))
+                    row = cursor.fetchone()
+                    tgt_emp_code = row[0]
+                    tgt_photo_path = row[1] if len(row) > 1 else None
+                    
+                    # Delete file from disk
+                    if tgt_photo_path and os.path.exists(tgt_photo_path):
+                        os.remove(tgt_photo_path)
+                    
+                    # Delete from DB
                     cursor.execute("DELETE FROM user_accounts WHERE UPPER(employee_id) = UPPER(?)", (tgt_emp_code,))
                     cursor.execute("DELETE FROM tasks WHERE hire_id = ?", (del_dict[target_purge],))
                     cursor.execute("DELETE FROM new_hires WHERE id = ?", (del_dict[target_purge],))
                     conn.commit()
                     
-                    st.success("Purged out completely.")
+                    st.success("Purged out completely and file deleted.")
                     st.session_state["p_check_state"] = False
                     st.rerun()
                 else:
