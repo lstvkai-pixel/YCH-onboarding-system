@@ -614,15 +614,16 @@ elif st.session_state["user_role"] == "Employer":
                         
                         cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                         
+                        # Added missing comma here
                         default_tasks = [
                             ("Contract Signing", "Phase 1: Pre-boarding Checklist", "HR Team"),
-                            ("PPE issuance completed", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team")
                             ("Declaration Form Submission", "Phase 1: Pre-boarding Checklist", "HR Team"),
                             ("Familiarization Orientation Briefing", "Phase 1: Pre-boarding Checklist", "HR Team"),
                             ("Accountability Form Completion", "Phase 1: Pre-boarding Checklist", "HR Team"),
                             ("HR Onboarding Documentation Processing", "Phase 2: Day 1 Checklist", "HR Team"),
                             ("Security Training and Warehouse Entry Processing", "Phase 2: Day 1 Checklist", "Security Team"),
                             ("QA&EHS Training and Safety Protocol Review", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
+                            ("PPE issuance completed", "Phase 2: Day 1 Checklist", "QA&EHS Team"),
                             ("SOP Orientation Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
                             ("Work Instruction Training Completed", "Phase 3: Technical Training Checklist", "Ops Team"),
                             ("Equipment Handling Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
@@ -630,7 +631,7 @@ elif st.session_state["user_role"] == "Employer":
                             ("Safety Procedures Training Completed", "Phase 3: Technical Training Checklist", "QA&EHS Team"),
                             ("Employee understands job responsibilities", "Phase 4: Performance Assessment Checklist", "HR Team"),
                             ("Employee understands account operations", "Phase 4: Performance Assessment Checklist", "HR Team"),
-                            ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team"),
+                            ("Employee introduced to operations team", "Phase 5: Employee Engagement & Follow-up Checklist", "HR Team")
                         ]
                         for t_name, p_name, own in default_tasks:
                             cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to) VALUES (?, ?, ?, ?)", (new_id, t_name, p_name, own))
