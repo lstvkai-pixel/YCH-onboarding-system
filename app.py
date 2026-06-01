@@ -1181,4 +1181,3 @@ elif st.session_state["user_role"] == "Employer":
                         st.rerun()
                         
         conn.close()
-```eof
