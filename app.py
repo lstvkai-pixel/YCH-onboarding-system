@@ -560,7 +560,19 @@ elif st.session_state["user_role"] == "Employer":
                             st.progress(ovr_pct / 100)
                             st.markdown("<br>", unsafe_allow_html=True)
                             
-                            raw_channel_msg = f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n*Employee Details*\n• *ID:* {emp_id}\n• *Name:* {name}\n• *Dept:* {dept}\n• *Role:* {role}\n• *Manager:* {manager}\n• *Start:* {start_date}"
+                            raw_channel_msg = (
+    f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
+    f"*Employee Details*\n"
+    f"• *ID:* {emp_id}\n"
+    f"• *Name:* {name}\n"
+    f"• *Dept:* {dept}\n"
+    f"• *Role:* {role}\n"
+    f"• *Manager:* {manager}\n"
+    f"• *Start:* {start_date}\n\n"
+    f"Kindly ensure that the assigned representative is available to facilitate the orientation, provide the necessary briefings, and introduce department-specific processes and requirements.\n\n"
+    f"Thank you for your cooperation in ensuring a seamless onboarding experience for our new employee.\n\n"
+    f"*YCH Human Resources Team*"
+)
                             encoded_channel = urllib.parse.quote(raw_channel_msg)
                             channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}"
                             
