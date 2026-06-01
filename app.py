@@ -191,7 +191,7 @@ def evaluate_achievements(hire_id, overall, phase_data):
     conn.close()
     if phase_data.get("Phase 3") == 100: badges.append("🚀 Technical Expert")
     if phase_data.get("Phase 4") == 100: badges.append("⭐ Independent Performer")
-    if overall == 100: badges.append("🎓 Onboarding Graduate")
+    if overall == 100: badges.append("🎓 Onboarding Completed")
     return badges
 
 def assign_status_health(overall):
@@ -479,11 +479,11 @@ elif st.session_state["user_role"] == "Employer":
                                 </div>
                             """, unsafe_allow_html=True)
                             
-                            # === NEW: Graduate & Archive Logic ===
+                            # === NEW: Completed & Archive Logic ===
                             if ovr_pct == 100:
                                 st.markdown("<br>", unsafe_allow_html=True)
                                 st.success("🎓 Onboarding Fully Completed!")
-                                if st.button(f"🎓 Graduate & Archive {name}", key=f"archive_{emp_id}", type="primary"):
+                                if st.button(f"🎓 Completed & Archive {name}", key=f"archive_{emp_id}", type="primary"):
                                     a_conn = get_db_connection()
                                     a_cursor = a_conn.cursor()
                                     a_cursor.execute("UPDATE new_hires SET status = 'Archived' WHERE id = ?", (h_id,))
