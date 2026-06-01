@@ -1058,7 +1058,7 @@ elif st.session_state["user_role"] == "Employer":
             st.markdown("#### 📢 Post Corporate Announcement")
             with st.form("ann_form", clear_on_submit=True):
                 a_title = st.text_input("Announcement Title Heading:", key="txt_title")
-                a_cat = st.selectbox("Target Classification Group:", ["Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
+                a_cat = st.selectbox("Target Classification Group:", ["HR Memo", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
                 a_body = st.text_area("Announcement Description Body Content:", key="txt_body")
                 a_file = st.file_uploader("Attach Document Memo File (Optional):", type=["pdf", "png", "jpg", "jpeg"], key="file_attach")
                 
