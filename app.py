@@ -8,6 +8,10 @@ import os
 import base64
 from datetime import datetime, timedelta
 import plotly.express as px
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
 
 # Set page config
 st.set_page_config(page_title="YCH EX Platform", layout="wide", initial_sidebar_state="expanded")
@@ -27,7 +31,6 @@ def init_database():
         gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
         phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
     
-    # Safely upgrade existing database with new birthday column if it doesn't exist
     try:
         cursor.execute("ALTER TABLE new_hires ADD COLUMN birthday TEXT")
     except sqlite3.OperationalError:
@@ -54,13 +57,8 @@ init_database()
 # ==========================================
 st.markdown("""
     <style>
-        /* Base App Styling */
         .stApp { background-color: #F4F7FB; }
-        
-        /* Remove top padding for custom header */
         .block-container { padding-top: 1rem !important; }
-        
-        /* Sidebar Styling */
         [data-testid="stSidebar"] { background-color: #002060; }
         [data-testid="stSidebar"] * { color: #FFFFFF !important; }
         
@@ -75,7 +73,6 @@ st.markdown("""
             background-color: rgba(255,255,255,0.1) !important;
         }
         
-        /* Custom KPI Card Styling */
         .kpi-container {
             display: flex;
             align-items: center;
@@ -99,50 +96,21 @@ st.markdown("""
             margin-right: 15px;
             flex-shrink: 0;
         }
-        .kpi-text-box {
-            display: flex;
-            flex-direction: column;
-        }
-        .kpi-label {
-            font-size: 14px;
-            color: #64748B;
-            font-weight: 600;
-            margin: 0;
-        }
-        .kpi-value {
-            font-size: 32px;
-            color: #002060;
-            font-weight: 800;
-            margin: 0;
-            line-height: 1.2;
-        }
+        .kpi-text-box { display: flex; flex-direction: column; }
+        .kpi-label { font-size: 14px; color: #64748B; font-weight: 600; margin: 0; }
+        .kpi-value { font-size: 32px; color: #002060; font-weight: 800; margin: 0; line-height: 1.2; }
         
-        /* Action Buttons */
         .ych-action-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            width: 100%;
-            height: 42px;
-            border: none;
-            border-radius: 6px;
-            color: white;
-            font-weight: bold;
-            font-size: 13px;
-            cursor: pointer;
-            text-decoration: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: inline-flex; align-items: center; justify-content: center;
+            text-align: center; width: 100%; height: 42px; border: none;
+            border-radius: 6px; color: white; font-weight: bold; font-size: 13px;
+            cursor: pointer; text-decoration: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             transition: all 0.2s;
         }
         .ych-action-btn:hover { opacity: 0.9; }
         
-        /* Sidebar Logo White Box */
         [data-testid="stSidebar"] img {
-            background-color: #FFFFFF;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
+            background-color: #FFFFFF; padding: 15px; border-radius: 8px; margin-bottom: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -235,21 +203,16 @@ def assign_status_health(overall):
 # STATE MACHINE INITIALIZATION
 # ==========================================
 for state_key, default_value in [
-    ("authenticated", False),
-    ("username", None),
-    ("user_role", None),
-    ("change_pwd", False),
-    ("confirm_delete_stage", False), 
-    ("target_purge_id", None), 
-    ("ann_posted_success", False),
-    ("profile_updated", False)  # Added this specifically for the Save Button fix!
+    ("authenticated", False), ("username", None), ("user_role", None),
+    ("change_pwd", False), ("confirm_delete_stage", False), 
+    ("target_purge_id", None), ("ann_posted_success", False), ("profile_updated", False)
 ]:
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
 
 if not st.session_state.get("authenticated", False):
-    st.markdown("<h1 style='color: #003366; text-align: center; font-family: sans-serif; font-weight: 900; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
-    st.markdown("<h5 style='color: #EAA221; text-align: center; font-family: sans-serif; font-weight: 600;'>Workforce Onboarding Portal</h5>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #003366; text-align: center; font-weight: 900; margin-top:50px;'>🏢 YCH GROUP EXPERIENCE LABS</h1>", unsafe_allow_html=True)
+    st.markdown("<h5 style='color: #EAA221; text-align: center; font-weight: 600;'>Workforce Onboarding Portal</h5>", unsafe_allow_html=True)
     
     with st.container(border=True):
         st.subheader("🔑 Identity Secure Access Sign-In")
@@ -291,21 +254,14 @@ if st.session_state.get("change_pwd", False):
             st.error("Password cannot be blank.")
     st.stop()
 
-# Render custom top bar for logged-in users
+# Render Header
 render_top_header()
 
-# Render Logo right above the terminate button in the Sidebar
+# Render Sidebar
 st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
-st.sidebar.markdown('''
-    <style>
-        [data-testid="stSidebar"] img {
-            background-color: #FFFFFF;
-            padding: 15px;
-            border-radius: 8px;
-        }
-    </style>
-''', unsafe_allow_html=True)
-if os.path.exists("YCH-EX.jpeg"):
+if os.path.exists("YCH-EX.png"):
+    st.sidebar.image("YCH-EX.png", use_container_width=True)
+elif os.path.exists("YCH-EX.jpeg"):
     st.sidebar.image("YCH-EX.jpeg", use_container_width=True)
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
@@ -314,17 +270,12 @@ if st.sidebar.button("🚪 Terminate Portal Session", use_container_width=True):
     st.rerun()
 
 # ==========================================
-# HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL RUNTIME
+# HUB INTERFACE ROADMAP 1: EMPLOYEE PORTAL
 # ==========================================
 if st.session_state["user_role"] == "Employee":
-    st.sidebar.markdown(
-        f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", 
-        unsafe_allow_html=True
-    )
-    
+    st.sidebar.markdown(f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", unsafe_allow_html=True)
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
-    
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
     
     conn = get_db_connection()
@@ -334,7 +285,7 @@ if st.session_state["user_role"] == "Employee":
     conn.close()
     
     if not emp_node:
-        st.warning("⚠️ Profile Configuration Exception: Your candidate account profile has not been initialized in the new hires table layout yet. Contact your HR manager PIC.")
+        st.warning("⚠️ Profile Configuration Exception: Your candidate account profile has not been initialized. Contact HR.")
     else:
         h_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = emp_node
         ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
@@ -343,7 +294,6 @@ if st.session_state["user_role"] == "Employee":
         
         if emp_menu == "📋 My Onboarding Journey Map":
             st.markdown("### 📋 My Onboarding Experience Journey Roadmap")
-            
             with st.container(border=True):
                 dc1, dc2 = st.columns([1, 4])
                 with dc1:
@@ -354,24 +304,19 @@ if st.session_state["user_role"] == "Employee":
                     st.markdown(f"🆔 **Employee ID:** `{st.session_state['username']}` | 💼 **Position Role:** `{role}`")
                     st.markdown(f"🏢 **Assigned Department:** `{dept}` | 👤 **Reporting Manager PIC:** `{manager}`")
                     st.markdown(f"📈 **Onboarding Status Health:** {health_state}")
-                    
                     if earned_achievements:
                         st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("#### Onboarding Journey Track Progress Map")
-            
+            st.markdown("<br>#### Onboarding Journey Track Progress Map", unsafe_allow_html=True)
             m_cols = st.columns(5)
             for step_idx, phase_spec in enumerate(PHASE_GROUPS):
                 p_code = phase_spec.split(":")[0]
                 p_val = p_breakdown[p_code]
-                
                 with m_cols[step_idx]:
                     bg_lbl = "🔵" if p_val == 100 else ("🟠" if p_val > 0 else "⚪")
                     st.markdown(f"<div style='text-align:center; font-size:12px; background:#FFFFFF; padding:8px; border-radius:6px; border:1px solid #E2E8F0; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>{bg_lbl} <b>{p_code}</b><br><span style='font-size:16px; font-weight:bold; color:#002060;'>{p_val}%</span></div>", unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("#### 📋 Detailed Individual Milestones Task Checklist Logs")
+            st.markdown("<br>#### 📋 Detailed Individual Milestones Task Checklist Logs", unsafe_allow_html=True)
             for current_phase in PHASE_GROUPS:
                 with st.expander(f"📌 {current_phase} (Progress Fraction: {p_breakdown[current_phase.split(':')[0]]}%)"):
                     conn = get_db_connection()
@@ -379,15 +324,13 @@ if st.session_state["user_role"] == "Employee":
                     cursor.execute("SELECT task_name, assigned_to, is_completed FROM tasks WHERE hire_id = ? AND phase = ?", (h_id, current_phase))
                     ptasks = cursor.fetchall()
                     conn.close()
-                    
-                    if not ptasks: st.caption("_No roadmap parameters verified onto this phase container block currently._")
+                    if not ptasks: st.caption("_No roadmap parameters verified currently._")
                     for t_name, team, comp in ptasks:
                         icon_s = "✅ Complete" if comp else "⏳ Pending Processing"
-                        st.markdown(f"• **{t_name}** — `[{icon_s}]` | Ownership Action Team Role: `{team}`")
+                        st.markdown(f"• **{t_name}** — `[{icon_s}]` | Team Role: `{team}`")
 
         elif emp_menu == "📚 Library Training center":
             st.markdown("### 📚 Distributed Training Document Library")
-            
             sel_phase = st.selectbox("Select Onboarding Phase roadmap target context:", PHASE_GROUPS)
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -396,49 +339,38 @@ if st.session_state["user_role"] == "Employee":
             conn.close()
             
             if not items:
-                st.info("No training materials or manuals published by administrators onto this phase context layer yet.")
+                st.info("No training materials assigned yet.")
             else:
                 for title, d_type, f_path in items:
                     st.markdown(f"📄 **{title}** `[{d_type}]` — _Read and understand guidelines carefully._")
                     if f_path and os.path.exists(f_path):
                         file_ext = f_path.split('.')[-1].lower()
-                        
                         with st.expander(f"👁️ Open and Read: {title}"):
                             if file_ext in ['png', 'jpg', 'jpeg']:
                                 st.image(f_path, use_container_width=True)
                             elif file_ext == 'pdf':
                                 with open(f_path, "rb") as f:
                                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                                
-                                # Use native markdown iframe to bypass Edge/Chrome Sandboxing blocks
                                 pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="800px" style="border: none;"></iframe>'
                                 st.markdown(pdf_display, unsafe_allow_html=True)
                             else:
-                                st.info("Preview not available for this file type.")
+                                st.info("Preview not available.")
                     st.markdown("---")
     st.stop()
 
 # ==========================================
-# HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL RUNTIME
+# HUB INTERFACE ROADMAP 2: EMPLOYER PORTAL
 # ==========================================
 elif st.session_state["user_role"] == "Employer":
     menu = st.sidebar.radio(
         "NAVIGATION HUB", 
-        [
-            "🏠 Corporate Experience Landing", 
-            "➕ Add New Employee", 
-            "📋 Task Checklist View", 
-            "📚 Rules and Guidelines", 
-            "📤 Export Reports", 
-            "🚨 System Administration"
-        ]
+        ["🏠 Corporate Experience Landing", "➕ Add New Employee", "📋 Task Checklist View", "📚 Rules and Guidelines", "📤 Export Reports", "🚨 System Administration"]
     )
 
-    # --- WORKSPACE 1: HR CORPORATE LANDING PAGE ---
+    # --- WORKSPACE 1: HR LANDING PAGE ---
     if menu == "🏠 Corporate Experience Landing":
-        st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals through structured onboarding, technical excellence, safety leadership, and continuous learning.")
+        st.info("🤝 **Our Welcome Charter:** Welcome to YCH Group. We are committed to developing world-class logistics professionals.")
         
-        # High Level Enterprise Metric Scorecards
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM new_hires WHERE status = 'Active'")
@@ -455,71 +387,25 @@ elif st.session_state["user_role"] == "Employer":
         avg_rate = int(tot_rate / act_c) if act_c > 0 else 0
         conn.close()
         
-        # Custom HTML KPI Cards based on Mockup
         k1, k2, k3, k4 = st.columns(4)
-        with k1: 
-            st.markdown(f"""
-            <div class="kpi-container">
-                <div class="kpi-icon-box">👥</div>
-                <div class="kpi-text-box">
-                    <p class="kpi-label">Active Tracks</p>
-                    <p class="kpi-value">{act_c}</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with k2: 
-            st.markdown(f"""
-            <div class="kpi-container">
-                <div class="kpi-icon-box">🎓</div>
-                <div class="kpi-text-box">
-                    <p class="kpi-label">Completed Onboarding</p>
-                    <p class="kpi-value">{grad_c}</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with k3: 
-            st.markdown(f"""
-            <div class="kpi-container">
-                <div class="kpi-icon-box">📈</div>
-                <div class="kpi-text-box">
-                    <p class="kpi-label">Avg Completion</p>
-                    <p class="kpi-value">{avg_rate}%</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with k4: 
-            st.markdown(f"""
-            <div class="kpi-container">
-                <div class="kpi-icon-box">👤+</div>
-                <div class="kpi-text-box">
-                    <p class="kpi-label">New Hires (Month)</p>
-                    <p class="kpi-value">{act_c}</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        with k1: st.markdown(f'<div class="kpi-container"><div class="kpi-icon-box">👥</div><div class="kpi-text-box"><p class="kpi-label">Active Tracks</p><p class="kpi-value">{act_c}</p></div></div>', unsafe_allow_html=True)
+        with k2: st.markdown(f'<div class="kpi-container"><div class="kpi-icon-box">🎓</div><div class="kpi-text-box"><p class="kpi-label">Completed</p><p class="kpi-value">{grad_c}</p></div></div>', unsafe_allow_html=True)
+        with k3: st.markdown(f'<div class="kpi-container"><div class="kpi-icon-box">📈</div><div class="kpi-text-box"><p class="kpi-label">Avg Completion</p><p class="kpi-value">{avg_rate}%</p></div></div>', unsafe_allow_html=True)
+        with k4: st.markdown(f'<div class="kpi-container"><div class="kpi-icon-box">👤+</div><div class="kpi-text-box"><p class="kpi-label">New Hires</p><p class="kpi-value">{act_c}</p></div></div>', unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         tab_dash, tab_news = st.tabs(["📊 Active Journeys Grid", "📢 Corporate News Feed"])
         
         with tab_dash:
-            # === NEW SEARCH FEATURE ===
             st.markdown("#### 🔍 Employee Directory Search")
-            search_query = st.text_input("Search active employees by ID, Name, Department, or Role:", placeholder="e.g. SG0001, John, HR, Admin...").strip().upper()
+            search_query = st.text_input("Search active employees by ID, Name, Department, or Role:").strip().upper()
             
             conn = get_db_connection()
             cursor = conn.cursor()
-            
-            # Filter dataset based on the search input
             if search_query:
                 cursor.execute("""
                     SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved 
-                    FROM new_hires 
-                    WHERE status = 'Active' AND (
-                        UPPER(name) LIKE ? OR 
-                        UPPER(employee_id) LIKE ? OR 
-                        UPPER(role) LIKE ? OR 
-                        UPPER(department) LIKE ?
-                    )
+                    FROM new_hires WHERE status = 'Active' AND (UPPER(name) LIKE ? OR UPPER(employee_id) LIKE ? OR UPPER(role) LIKE ? OR UPPER(department) LIKE ?)
                 """, (f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"))
             else:
                 cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
@@ -528,14 +414,10 @@ elif st.session_state["user_role"] == "Employer":
             conn.close()
             
             if not active_dataset:
-                if search_query:
-                    st.warning(f"No active employees found matching '{search_query}'.")
-                else:
-                    st.info("No active onboarding profiles running inside the logistics roadmap track pipelines.")
+                if search_query: st.warning(f"No active employees found matching '{search_query}'.")
+                else: st.info("No active onboarding profiles running.")
             else:
-                if search_query:
-                    st.success(f"Found {len(active_dataset)} matching profile(s).")
-                    
+                if search_query: st.success(f"Found {len(active_dataset)} matching profile(s).")
                 for node in active_dataset:
                     h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = node
                     ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
@@ -552,7 +434,6 @@ elif st.session_state["user_role"] == "Employer":
                             st.markdown(f"💼 **{role}** | 🏬 {dept} | 👤 PIC: *{manager}*")
                             st.markdown(f"📱 Contact: `{mobile}` | 📅 Started: *{start_date}*")
                             st.markdown(f"📈 Status: **{health_state}**")
-                            
                             if earned_achievements:
                                 st.markdown(" ".join([f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; margin-right:5px; font-weight:bold; color:#003366;'>{b}</span>" for b in earned_achievements]), unsafe_allow_html=True)
                         with dc3:
@@ -560,43 +441,28 @@ elif st.session_state["user_role"] == "Employer":
                             st.progress(ovr_pct / 100)
                             st.markdown("<br>", unsafe_allow_html=True)
                             
-# --- 1. Channel Broadcast Message ---
+                            # Channel Broadcast
                             raw_channel_msg = (
                                 f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
-                                f"*Employee Details*\n"
-                                f"• *ID:* {emp_id}\n"
-                                f"• *Name:* {name}\n"
-                                f"• *Dept:* {dept}\n"
-                                f"• *Role:* {role}\n"
-                                f"• *Manager:* {manager}\n"
-                                f"• *Start:* {start_date}\n\n"
+                                f"*Employee Details*\n• *ID:* {emp_id}\n• *Name:* {name}\n• *Dept:* {dept}\n• *Role:* {role}\n• *Manager:* {manager}\n• *Start:* {start_date}\n\n"
                                 f"Kindly ensure that the assigned representative is available to facilitate the orientation, provide the necessary briefings, and introduce department-specific processes and requirements.\n\n"
-                                f"Thank you for your cooperation in ensuring a seamless onboarding experience for our new employee.\n\n"
-                                f"*YCH Human Resources Team*"
+                                f"Thank you for your cooperation in ensuring a seamless onboarding experience for our new employee.\n\n*YCH Human Resources Team*"
                             )
                             encoded_channel = urllib.parse.quote(raw_channel_msg)
                             channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}"
                             
-                            # --- 2. Dynamic Progress Update with Reminders ---
-                            # Find which phases are not yet at 100%
+                            # SMS Progress (with reminders)
                             pending_phases = [p for p, pct in p_breakdown.items() if pct < 100]
-                            
                             if pending_phases:
-                                reminder_section = "\n\n⚠️ *Action Required:*\nYou have pending tasks in the following areas:\n" + "\n".join([f"• {p}" for p in pending_phases]) + "\n\nKindly approach the HR Department to facilitate the completion of your remaining onboarding requirements at your earliest convenience."
+                                reminder_section = "\n\n⚠️ *Action Required:*\nYou have pending tasks in the following areas:\n" + "\n".join([f"• {p}" for p in pending_phases]) + "\n\nKindly approach the HR Department to facilitate the completion of your remaining onboarding requirements."
                             else:
                                 reminder_section = "\n\n🎉 Congratulations! All your onboarding requirements are fully complete."
 
-                            raw_progress_msg = (
-                                f"📊 *YCH Progress Update*\n\n"
-                                f"• *ID:* {emp_id}\n"
-                                f"• *Name:* {name}\n\n"
-                                f"📈 *Overall Completion:* {ovr_pct}%"
-                                f"{reminder_section}"
-                            )
-                            
+                            raw_progress_msg = f"📊 *YCH Progress Update*\n\n• *ID:* {emp_id}\n• *Name:* {name}\n\n📈 *Overall Completion:* {ovr_pct}%{reminder_section}"
                             clean_phone = re.sub(r'\D', '', mobile)
                             encoded_progress = urllib.parse.quote(raw_progress_msg)
                             employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
+                            
                             st.markdown(f"""
                                 <div style='display: flex; gap: 10px; width: 100%;'>
                                     <a href='{channel_url}' target='_blank' style='flex: 1; text-decoration: none;'>
@@ -624,21 +490,15 @@ elif st.session_state["user_role"] == "Employer":
                         
         with tab_news:
             st.markdown("### 📢 YCH Group Corporate News & Announcement Center")
-            
             curr_time_str = datetime.now().strftime("%Y-%m-%d")
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT title, category, content, date_posted, file_path 
-                FROM announcements 
-                WHERE expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ? 
-                ORDER BY id DESC
-            """, (curr_time_str,))
+            cursor.execute("SELECT title, category, content, date_posted, file_path FROM announcements WHERE expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ? ORDER BY id DESC", (curr_time_str,))
             notices = cursor.fetchall()
             conn.close()
             
             if not notices:
-                st.caption("_No active corporate announcements posted in the ledger currently._")
+                st.caption("_No active corporate announcements posted currently._")
             else:
                 for title, cat, content, dt, f_path in notices:
                     with st.container(border=True):
@@ -646,11 +506,22 @@ elif st.session_state["user_role"] == "Employer":
                         st.markdown(f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; font-weight:bold; color:#003366;'>{cat}</span> | <span style='font-size:12px; color:gray;'>Posted on {dt}</span>", unsafe_allow_html=True)
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.write(content)
+                        
+                        # Preview Announcement File Directly
                         if f_path and os.path.exists(f_path):
-                            with open(f_path, "rb") as b_stream:
-                                st.download_button(label=f"📎 Download Memo ({os.path.basename(f_path)})", data=b_stream.read(), file_name=os.path.basename(f_path), key=f"dl_ann_{dt}_{title}")
+                            file_ext = f_path.split('.')[-1].lower()
+                            st.markdown("---")
+                            if file_ext in ['png', 'jpg', 'jpeg']:
+                                st.image(f_path, use_container_width=True)
+                            elif file_ext == 'pdf':
+                                with open(f_path, "rb") as f:
+                                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="700px" style="border: 1px solid #E2E8F0; border-radius: 8px;"></iframe>'
+                                st.markdown(pdf_display, unsafe_allow_html=True)
+                            else:
+                                st.info("Preview not available for this file type.")
 
-    # --- WORKSPACE 2: EMPLOYEE REGISTRATION ---
+    # --- WORKSPACE 2: ADD NEW EMPLOYEE ---
     elif menu == "➕ Add New Employee":
         st.markdown("### ➕ Roster New Workforce Profile")
         conn = get_db_connection()
@@ -664,34 +535,24 @@ elif st.session_state["user_role"] == "Employer":
             input_name = st.text_input("Candidate Full Name:")
             input_mobile = st.text_input("Mobile Number (Numbers only, e.g. 639123456789):").strip()
             input_gender = st.selectbox("Gender:", ["Male", "Female"])
-            
-            # --- NEW BIRTHDAY FIELD ---
             input_birthday = st.date_input("Date of Birth:", min_value=datetime(1950, 1, 1), max_value=datetime.now())
-            
             input_dept = st.selectbox("Department:", YCH_DEPARTMENTS)
             input_role = st.text_input("Job Position:")
-            
             input_manager = st.selectbox("Reporting Manager:", manager_options) if manager_options else "No Manager Assigned"
             input_date_picker = st.date_input("Start Date:")
             uploaded_pic = st.file_uploader("Employee Photo:", type=["png", "jpg", "jpeg"])
             
             if st.form_submit_button("Deploy Onboarding Track", type="primary"):
                 clean_mob = re.sub(r'\D', '', input_mobile)
-                
-                # --- MANAGER REQUIREMENT VALIDATION ---
-                if input_manager == "No Manager Assigned" or not manager_options:
-                    st.error("Validation Failed: An Assigned Reporting Manager is required! Please add one in 'System Administration' first.")
-                elif not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
-                    st.error("Validation Failed: ID must be 2 Letters + 4 Numbers.")
-                elif input_name == "" or len(clean_mob) < 8:
-                    st.error("Validation Failed: Check missing fields or mobile length.")
+                if input_manager == "No Manager Assigned" or not manager_options: st.error("Validation Failed: An Assigned Reporting Manager is required!")
+                elif not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id): st.error("Validation Failed: ID must be 2 Letters + 4 Numbers.")
+                elif input_name == "" or len(clean_mob) < 8: st.error("Validation Failed: Check missing fields or mobile length.")
                 else:
                     photo_save_path = None
                     if uploaded_pic is not None:
                         os.makedirs("employee_photos", exist_ok=True)
                         photo_save_path = f"employee_photos/{input_emp_id}_{uploaded_pic.name}"
-                        with open(photo_save_path, "wb") as f:
-                            f.write(uploaded_pic.getbuffer())
+                        with open(photo_save_path, "wb") as f: f.write(uploaded_pic.getbuffer())
 
                     conn = get_db_connection()
                     cursor = conn.cursor()
@@ -699,10 +560,8 @@ elif st.session_state["user_role"] == "Employer":
                         cursor.execute("""
                             INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, birthday, photo_path) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (input_emp_id, input_mobile, input_name, input_role, input_dept, 
-                              input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, input_birthday.strftime("%B %d, %Y"), photo_save_path))
+                        """, (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, input_birthday.strftime("%B %d, %Y"), photo_save_path))
                         new_id = cursor.lastrowid
-                        
                         cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                         
                         default_tasks = [
@@ -734,16 +593,13 @@ elif st.session_state["user_role"] == "Employer":
                         wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
                         st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
                         
-                    except sqlite3.IntegrityError:
-                        st.error("Error: This Employee ID already exists inside system memory.")
-                    finally:
-                        conn.close()
+                    except sqlite3.IntegrityError: st.error("Error: This Employee ID already exists.")
+                    finally: conn.close()
 
     # --- WORKSPACE 3: CHECKLIST VIEW & EDIT PROFILE ---
     elif menu == "📋 Task Checklist View":
         st.markdown("### 📋 Phased Checklist Processing & Verification Layer")
         
-        # 🟢 Display Success Message here so it persists after page reload
         if st.session_state.get("profile_updated"):
             st.success("✅ Employee profile information has been successfully saved and updated!")
             st.session_state["profile_updated"] = False
@@ -763,7 +619,6 @@ elif st.session_state["user_role"] == "Employer":
             worker_record = [a for a in active_dataset if a[0] == sel_id][0]
             p3_app, p4_app, p5_app = worker_record[3], worker_record[4], worker_record[5]
             
-            # --- FIXED EDIT EMPLOYEE PROFILE SECTION ---
             with st.expander("✏️ Edit Employee Profile Information"):
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -778,38 +633,23 @@ elif st.session_state["user_role"] == "Employer":
                         e_name = st.text_input("Full Name", value=emp_details[0])
                         e_mobile = st.text_input("Mobile Number", value=emp_details[1])
                         e_role = st.text_input("Role", value=emp_details[2])
-                        
-                        try:
-                            dept_idx = YCH_DEPARTMENTS.index(emp_details[3])
-                        except ValueError:
-                            dept_idx = 0
+                        try: dept_idx = YCH_DEPARTMENTS.index(emp_details[3])
+                        except ValueError: dept_idx = 0
                         e_dept = st.selectbox("Department", YCH_DEPARTMENTS, index=dept_idx)
                         
-                        # 🟢 Handle manager selection safely WITH index parameter fixed
                         mgr_idx = 0
-                        if emp_details[4] in all_mgrs:
-                            mgr_idx = all_mgrs.index(emp_details[4])
+                        if emp_details[4] in all_mgrs: mgr_idx = all_mgrs.index(emp_details[4])
                         e_mgr = st.selectbox("Reporting Manager", all_mgrs, index=mgr_idx) if all_mgrs else "No Manager Assigned"
                         
-                        # Parse birthday back to date object safely
-                        try:
-                            bday_val = datetime.strptime(emp_details[6], "%B %d, %Y").date() if emp_details[6] else datetime(1990, 1, 1).date()
-                        except:
-                            bday_val = datetime(1990, 1, 1).date()
+                        try: bday_val = datetime.strptime(emp_details[6], "%B %d, %Y").date() if emp_details[6] else datetime(1990, 1, 1).date()
+                        except: bday_val = datetime(1990, 1, 1).date()
                         e_bday = st.date_input("Birthday", value=bday_val, min_value=datetime(1950, 1, 1), max_value=datetime.now())
                         
                         if st.form_submit_button("💾 Save Changes", type="primary"):
                             conn = get_db_connection()
                             cursor = conn.cursor()
-                            cursor.execute("""
-                                UPDATE new_hires 
-                                SET name = ?, mobile_number = ?, role = ?, department = ?, manager = ?, birthday = ?
-                                WHERE id = ?
-                            """, (e_name, e_mobile, e_role, e_dept, e_mgr, e_bday.strftime("%B %d, %Y"), sel_id))
-                            conn.commit()
-                            conn.close()
-                            
-                            # 🟢 Set session state flag instead of wiping the success message instantly
+                            cursor.execute("UPDATE new_hires SET name = ?, mobile_number = ?, role = ?, department = ?, manager = ?, birthday = ? WHERE id = ?", (e_name, e_mobile, e_role, e_dept, e_mgr, e_bday.strftime("%B %d, %Y"), sel_id))
+                            conn.commit(); conn.close()
                             st.session_state["profile_updated"] = True
                             st.rerun()
 
@@ -820,16 +660,13 @@ elif st.session_state["user_role"] == "Employer":
                         new_task_name = st.text_input("Task Name:", placeholder="e.g. Submit BIR Form 2316")
                         new_task_phase = st.selectbox("Assign to Phase:", PHASE_GROUPS)
                         new_task_team = st.selectbox("Ownership Action Team Role:", AVAILABLE_TEAMS)
-                        
                         if st.form_submit_button("Incorporate Task into Checklist"):
-                            if new_task_name.strip() == "":
-                                st.error("Please enter a task name.")
+                            if new_task_name.strip() == "": st.error("Please enter a task name.")
                             else:
                                 conn = get_db_connection()
                                 cursor = conn.cursor()
                                 cursor.execute("INSERT INTO tasks (hire_id, task_name, phase, assigned_to, is_completed) VALUES (?, ?, ?, ?, 0)", (sel_id, new_task_name, new_task_phase, new_task_team))
-                                conn.commit()
-                                conn.close()
+                                conn.commit(); conn.close()
                                 st.success(f"🎉 '{new_task_name}' added to {new_task_phase.split(':')[0]}!")
                                 st.rerun()
 
@@ -851,13 +688,11 @@ elif st.session_state["user_role"] == "Employer":
                             checked = st.checkbox(f"**{t_name}** `[{team}]`", value=bool(comp), key=f"t_line_{t_id}", disabled=is_locked)
                             if checked != bool(comp) and not is_locked:
                                 cursor.execute("UPDATE tasks SET is_completed = ? WHERE id = ?", (1 if checked else 0, t_id))
-                                conn.commit()
-                                st.rerun()
+                                conn.commit(); st.rerun()
                         with c2:
                             if st.button("🗑️ Drop", key=f"drop_{t_id}", disabled=is_locked):
                                 cursor.execute("DELETE FROM tasks WHERE id = ?", (t_id,))
-                                conn.commit()
-                                st.rerun()
+                                conn.commit(); st.rerun()
                     st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 conn.close()
                 
@@ -872,10 +707,8 @@ elif st.session_state["user_role"] == "Employer":
                         with open(clean_filename, "wb") as f: f.write(uploaded_doc_file.getbuffer())
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        cursor.execute("INSERT INTO signed_documents (hire_id, doc_name, file_path, date_uploaded) VALUES (?, ?, ?, ?)", 
-                                       (sel_id, doc_title_input, clean_filename, datetime.now().strftime("%Y-%m-%d")))
-                        conn.commit()
-                        conn.close()
+                        cursor.execute("INSERT INTO signed_documents (hire_id, doc_name, file_path, date_uploaded) VALUES (?, ?, ?, ?)", (sel_id, doc_title_input, clean_filename, datetime.now().strftime("%Y-%m-%d")))
+                        conn.commit(); conn.close()
                         st.success("Document uploaded!")
                         st.rerun()
                 
@@ -889,20 +722,26 @@ elif st.session_state["user_role"] == "Employer":
                     st.markdown("##### 📁 Archived Logs")
                     for d_id, d_name, d_path in saved_docs:
                         if os.path.exists(d_path):
-                            with open(d_path, "rb") as file_bytes:
-                                st.download_button(label=f"📥 {d_name}", data=file_bytes.read(), file_name=os.path.basename(d_path), key=f"dl_vdoc_{d_id}", use_container_width=True)
+                            # Preview Vault Documents instead of downloading
+                            with st.expander(f"👁️ View Document: {d_name}"):
+                                file_ext = d_path.split('.')[-1].lower()
+                                if file_ext in ['png', 'jpg', 'jpeg']:
+                                    st.image(d_path, use_container_width=True)
+                                elif file_ext == 'pdf':
+                                    with open(d_path, "rb") as f:
+                                        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="600px" style="border: 1px solid #E2E8F0; border-radius: 8px;"></iframe>'
+                                    st.markdown(pdf_display, unsafe_allow_html=True)
+                                else:
+                                    st.info("Preview not available for this file type.")
                 st.markdown("<hr>", unsafe_allow_html=True)
 
                 st.markdown("#### 🛡️ Manager Sign-off Portal")
-                
-                # Check if any documents are uploaded before allowing approval
                 has_docs = len(saved_docs) > 0
-                if not has_docs:
-                    st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
+                if not has_docs: st.info("⚠️ Upload a document to the Vault first to unlock phase approvals.")
 
                 conn = get_db_connection()
                 cursor = conn.cursor()
-                
                 def render_signed_off(text):
                     st.markdown(f"<div style='background-color: #EAF4EB; color: #1E8E3E; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center;'><span style='font-size: 18px; margin-right: 10px;'>✔️</span> <b>{text}</b></div>", unsafe_allow_html=True)
 
@@ -910,22 +749,19 @@ elif st.session_state["user_role"] == "Employer":
                     if st.button("✅ Approve Phase 3", use_container_width=True, disabled=not has_docs):
                         cursor.execute("UPDATE new_hires SET phase3_approved = 1 WHERE id = ?", (sel_id,))
                         conn.commit(); st.rerun()
-                else: 
-                    render_signed_off("Phase 3 Signed Off")
+                else: render_signed_off("Phase 3 Signed Off")
                     
                 if not p4_app:
                     if st.button("✅ Approve Phase 4", use_container_width=True, disabled=not has_docs):
                         cursor.execute("UPDATE new_hires SET phase4_approved = 1 WHERE id = ?", (sel_id,))
                         conn.commit(); st.rerun()
-                else: 
-                    render_signed_off("Phase 4 Signed Off")
+                else: render_signed_off("Phase 4 Signed Off")
                     
                 if not p5_app:
                     if st.button("✅ Approve Phase 5", use_container_width=True, disabled=not has_docs):
                         cursor.execute("UPDATE new_hires SET phase5_approved = 1 WHERE id = ?", (sel_id,))
                         conn.commit(); st.rerun()
-                else: 
-                    render_signed_off("Phase 5 Signed Off")
+                else: render_signed_off("Phase 5 Signed Off")
                 conn.close()
 
     # --- WORKSPACE: RULES AND GUIDELINES ---
@@ -941,8 +777,7 @@ elif st.session_state["user_role"] == "Employer":
             items = cursor.fetchall()
             conn.close()
             
-            if not items: 
-                st.info("No training modules assigned yet.")
+            if not items: st.info("No training modules assigned yet.")
             else:
                 for lms_id, title, d_type, f_path in items: 
                     with st.container(border=True):
@@ -950,17 +785,19 @@ elif st.session_state["user_role"] == "Employer":
                         with c_item:
                             st.markdown(f"📄 **{title}** `[{d_type}]`")
                             if f_path and os.path.exists(f_path):
-                                with open(f_path, "rb") as file_bytes:
-                                    st.download_button(label=f"📥 Download {title}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_admin_lms_{lms_id}")
+                                file_ext = f_path.split('.')[-1].lower()
+                                with st.expander(f"👁️ Preview: {title}"):
+                                    if file_ext in ['png', 'jpg', 'jpeg']: st.image(f_path, use_container_width=True)
+                                    elif file_ext == 'pdf':
+                                        with open(f_path, "rb") as f: base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="700px" style="border: none;"></iframe>'
+                                        st.markdown(pdf_display, unsafe_allow_html=True)
                         with c_actions:
                             if st.button("🗑️ Delete Asset", key=f"del_lms_{lms_id}", use_container_width=True):
                                 conn = get_db_connection()
                                 cursor = conn.cursor()
                                 cursor.execute("DELETE FROM lms_materials WHERE id = ?", (lms_id,))
-                                conn.commit()
-                                conn.close()
-                                st.success("Asset completely removed.")
-                                st.rerun()
+                                conn.commit(); conn.close(); st.success("Asset completely removed."); st.rerun()
                     
         with tab_upload:
             with st.form("lms_upload_form", clear_on_submit=True):
@@ -980,10 +817,8 @@ elif st.session_state["user_role"] == "Employer":
                         conn = get_db_connection()
                         cursor = conn.cursor()
                         cursor.execute("INSERT INTO lms_materials (phase, title, doc_type, file_path) VALUES (?, ?, ?, ?)", (asset_phase, asset_title, asset_type, saved_file_path))
-                        conn.commit()
-                        conn.close()
-                        st.success(f"🎉 Success: deployed '{asset_title}' document asset node cleanly!")
-                        st.rerun()
+                        conn.commit(); conn.close()
+                        st.success(f"🎉 Success: deployed '{asset_title}' document asset node cleanly!"); st.rerun()
 
     elif menu == "📤 Export Reports":
         st.markdown("### 📤 Multi-Roster Extraction & Executive Reports Engine")
@@ -1045,8 +880,7 @@ elif st.session_state["user_role"] == "Employer":
                             conn.commit()
                             st.success(f"Admin '{new_admin_id}' created successfully!")
                         except sqlite3.IntegrityError: st.error("Admin ID already exists.")
-                        conn.close()
-                        st.rerun()
+                        conn.close(); st.rerun()
                         
             st.markdown("#### 👤 Manage Operation Managers")
             with st.form("admin_m_form_v2", clear_on_submit=True):
@@ -1056,13 +890,10 @@ elif st.session_state["user_role"] == "Employer":
                     cursor = conn.cursor()
                     try:
                         cursor.execute("INSERT INTO managers (manager_name) VALUES (?)", (new_manager.strip(),))
-                        conn.commit()
-                        st.success("Operational authority logged successfully.")
+                        conn.commit(); st.success("Operational authority logged successfully.")
                     except sqlite3.IntegrityError: st.error("Entry already exists.")
-                    conn.close()
-                    st.rerun()
+                    conn.close(); st.rerun()
             
-            # --- REMOVE MANAGER FEATURE ---
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, manager_name FROM managers ORDER BY manager_name ASC")
@@ -1077,10 +908,7 @@ elif st.session_state["user_role"] == "Employer":
                         conn = get_db_connection()
                         cursor = conn.cursor()
                         cursor.execute("DELETE FROM managers WHERE id = ?", (mgr_dict[mgr_to_remove],))
-                        conn.commit()
-                        conn.close()
-                        st.success(f"Manager '{mgr_to_remove}' has been removed from the system.")
-                        st.rerun()
+                        conn.commit(); conn.close(); st.success(f"Manager '{mgr_to_remove}' has been removed from the system."); st.rerun()
 
         with adm_c2:
             st.markdown("#### 📢 Post Corporate Announcement")
@@ -1107,10 +935,8 @@ elif st.session_state["user_role"] == "Employer":
                         cursor = conn.cursor()
                         cursor.execute("INSERT INTO announcements (title, category, content, date_posted, file_path, expiry_date) VALUES (?, ?, ?, ?, ?, ?)", 
                                        (a_title, a_cat, a_body, datetime.now().strftime("%B %d, %Y"), saved_ann_file, expiry_date_val))
-                        conn.commit()
-                        conn.close()
-                        st.session_state["ann_posted_success"] = True
-                        st.rerun()
+                        conn.commit(); conn.close()
+                        st.session_state["ann_posted_success"] = True; st.rerun()
 
             st.markdown("#### ⚙️ Manage Published Bulletins")
             conn = get_db_connection()
@@ -1119,8 +945,7 @@ elif st.session_state["user_role"] == "Employer":
             all_notices_list = cursor.fetchall()
             conn.close()
             
-            if not all_notices_list:
-                st.caption("No published bulletins found.")
+            if not all_notices_list: st.caption("No published bulletins found.")
             else:
                 for n_id, n_title, n_date in all_notices_list:
                     cn_text, cn_btn = st.columns([3, 1])
@@ -1130,10 +955,7 @@ elif st.session_state["user_role"] == "Employer":
                             conn = get_db_connection()
                             cursor = conn.cursor()
                             cursor.execute("DELETE FROM announcements WHERE id = ?", (n_id,))
-                            conn.commit()
-                            conn.close()
-                            st.success("Notice completely wiped from dashboard ledger.")
-                            st.rerun()
+                            conn.commit(); conn.close(); st.success("Notice completely wiped from dashboard ledger."); st.rerun()
                             
             st.markdown("#### 🔑 Employee Password Override")
             with st.form("password_reset_form", clear_on_submit=True):
@@ -1167,10 +989,8 @@ elif st.session_state["user_role"] == "Employer":
             del_dict = {f"[{h[1]}] {h[2]}": h[0] for h in del_opts}
             target_purge = st.selectbox("Select target account to erase permanently:", list(del_dict.keys()))
             
-            # Checkbox bound directly to a session state key for easy reset
             st.checkbox("Confirm permanent account removal deletion.", key="delete_checkbox")
             
-            # When user clicks the main delete button, trigger the confirmation mode
             if st.button("Permanently Erase Profile", type="primary"):
                 if st.session_state.delete_checkbox:
                     st.session_state.confirm_delete_stage = True
@@ -1178,14 +998,12 @@ elif st.session_state["user_role"] == "Employer":
                 else:
                     st.error("Action Intercepted: You must check the confirmation box first.")
             
-            # ⚠️ TWO-STEP VERIFICATION POPUP LOGIC ⚠️
             if st.session_state.confirm_delete_stage:
                 st.warning("⚠️ **WARNING: ARE YOU ABSOLUTELY SURE?**\n\nThis will permanently delete the employee profile, clear their training logs, unregister their login credentials, and wipe their photo file from the disk. This action cannot be undone.")
                 col1, col2, col3 = st.columns([1, 1, 2])
                 
                 with col1:
                     if st.button("✔️ YES, DELETE PERMANENTLY", type="primary"):
-                        # Process the actual deletion
                         cursor.execute("SELECT employee_id, photo_path FROM new_hires WHERE id = ?", (st.session_state.target_purge_id,))
                         row = cursor.fetchone()
                         if row:
@@ -1202,19 +1020,15 @@ elif st.session_state["user_role"] == "Employer":
                             
                             st.success("Profile completely purged and file deleted.")
                         
-                        # Reset states to hide popup and clear checkbox
                         st.session_state.confirm_delete_stage = False
-                        if "delete_checkbox" in st.session_state:
-                            del st.session_state["delete_checkbox"]
+                        if "delete_checkbox" in st.session_state: del st.session_state["delete_checkbox"]
                         st.session_state.target_purge_id = None
                         st.rerun()
                 
                 with col2:
                     if st.button("❌ CANCEL", use_container_width=True):
-                        # Hide the popup and clear the checkbox if they cancel
                         st.session_state.confirm_delete_stage = False
-                        if "delete_checkbox" in st.session_state:
-                            del st.session_state["delete_checkbox"]
+                        if "delete_checkbox" in st.session_state: del st.session_state["delete_checkbox"]
                         st.rerun()
                         
         conn.close()
