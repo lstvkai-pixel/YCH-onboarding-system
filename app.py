@@ -353,6 +353,10 @@ if st.session_state["user_role"] == "Employee":
                                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                                 pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="800px" style="border: none;"></iframe>'
                                 st.markdown(pdf_display, unsafe_allow_html=True)
+                            elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']:
+                                st.info("Preview not available for Office documents. Please download to view.")
+                                with open(f_path, "rb") as file_bytes:
+                                    st.download_button(label=f"📥 Download {os.path.basename(f_path)}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"emp_dl_doc_{title}")
                             else:
                                 st.info("Preview not available.")
                     st.markdown("---")
@@ -518,6 +522,10 @@ elif st.session_state["user_role"] == "Employer":
                                     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                                 pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="700px" style="border: 1px solid #E2E8F0; border-radius: 8px;"></iframe>'
                                 st.markdown(pdf_display, unsafe_allow_html=True)
+                            elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']:
+                                st.info("Preview not available for Office documents. Please download to view.")
+                                with open(f_path, "rb") as file_bytes:
+                                    st.download_button(label=f"📥 Download {os.path.basename(f_path)}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_ann_doc_{dt}_{title}")
                             else:
                                 st.info("Preview not available for this file type.")
 
@@ -700,7 +708,7 @@ elif st.session_state["user_role"] == "Employer":
                 st.markdown("#### 📂 Signed Documents Vault")
                 with st.form("vault_upload_form", clear_on_submit=True):
                     doc_title_input = st.text_input("Document Name / Description:", placeholder="e.g. Signed Employment Contract")
-                    uploaded_doc_file = st.file_uploader("Upload Signed Document (.pdf, .png, .jpg):", type=["pdf", "png", "jpg", "jpeg"])
+                    uploaded_doc_file = st.file_uploader("Upload Signed Document (.pdf, .png, .jpg, .docx, .pptx):", type=["pdf", "png", "jpg", "jpeg", "doc", "docx", "ppt", "pptx"])
                     if st.form_submit_button("🔒 Upload to Vault") and doc_title_input != "" and uploaded_doc_file is not None:
                         os.makedirs("vault", exist_ok=True)
                         clean_filename = f"vault/{sel_id}_{int(datetime.now().timestamp())}_{uploaded_doc_file.name}"
@@ -722,7 +730,6 @@ elif st.session_state["user_role"] == "Employer":
                     st.markdown("##### 📁 Archived Logs")
                     for d_id, d_name, d_path in saved_docs:
                         if os.path.exists(d_path):
-                            # Preview Vault Documents instead of downloading
                             with st.expander(f"👁️ View Document: {d_name}"):
                                 file_ext = d_path.split('.')[-1].lower()
                                 if file_ext in ['png', 'jpg', 'jpeg']:
@@ -732,6 +739,10 @@ elif st.session_state["user_role"] == "Employer":
                                         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                                     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="600px" style="border: 1px solid #E2E8F0; border-radius: 8px;"></iframe>'
                                     st.markdown(pdf_display, unsafe_allow_html=True)
+                                elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']:
+                                    st.info("Preview not available for Office documents. Please download to view.")
+                                    with open(d_path, "rb") as file_bytes:
+                                        st.download_button(label=f"📥 Download {d_name}", data=file_bytes.read(), file_name=os.path.basename(d_path), key=f"dl_vdoc_doc_{d_id}", use_container_width=True)
                                 else:
                                     st.info("Preview not available for this file type.")
                 st.markdown("<hr>", unsafe_allow_html=True)
@@ -792,6 +803,10 @@ elif st.session_state["user_role"] == "Employer":
                                         with open(f_path, "rb") as f: base64_pdf = base64.b64encode(f.read()).decode('utf-8')
                                         pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="700px" style="border: none;"></iframe>'
                                         st.markdown(pdf_display, unsafe_allow_html=True)
+                                    elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']:
+                                        st.info("Preview not available for Office documents. Please download to view.")
+                                        with open(f_path, "rb") as file_bytes:
+                                            st.download_button(label=f"📥 Download {title}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"dl_admin_lms_doc_{lms_id}")
                         with c_actions:
                             if st.button("🗑️ Delete Asset", key=f"del_lms_{lms_id}", use_container_width=True):
                                 conn = get_db_connection()
@@ -804,7 +819,7 @@ elif st.session_state["user_role"] == "Employer":
                 asset_title = st.text_input("Module Training Document Title:")
                 asset_phase = st.selectbox("Link Material to Target Phase:", PHASE_GROUPS)
                 asset_type = st.selectbox("Document Classification Type:", ["SOP PDF", "Work Instruction", "Safety Manual", "Training Guidelines"])
-                uploaded_lms_file = st.file_uploader("Upload Training Document (.pdf, .png, .jpg, .docx):", type=["pdf", "png", "jpg", "jpeg", "docx"])
+                uploaded_lms_file = st.file_uploader("Upload Training Document (.pdf, .png, .jpg, .docx, .pptx):", type=["pdf", "png", "jpg", "jpeg", "doc", "docx", "ppt", "pptx"])
                 
                 if st.form_submit_button("Deploy Training Checklist", type="primary"):
                     if asset_title.strip() == "": st.error("Validation Failed: Please enter a descriptive title.")
@@ -916,7 +931,7 @@ elif st.session_state["user_role"] == "Employer":
                 a_title = st.text_input("Announcement Title Heading:", key="txt_title")
                 a_cat = st.selectbox("Target Classification Group:", ["HR Memo", "Safety Reminder", "Company Event", "Training Notice", "Policy Update"], key="sel_cat")
                 a_body = st.text_area("Announcement Description Body Content:", key="txt_body")
-                a_file = st.file_uploader("Attach Document Memo File (Optional):", type=["pdf", "png", "jpg", "jpeg"], key="file_attach")
+                a_file = st.file_uploader("Attach Document Memo File (Optional) (.pdf, .png, .jpg, .docx, .pptx):", type=["pdf", "png", "jpg", "jpeg", "doc", "docx", "ppt", "pptx"], key="file_attach")
                 
                 has_expiry = st.checkbox("Set an expiration date for this post?", key="chk_expiry")
                 expiry_date_picker = st.date_input("Optional Expiration Date:", min_value=datetime.now(), key="dt_expiry")
