@@ -494,15 +494,40 @@ elif st.session_state["user_role"] == "Employer":
         tab_dash, tab_news = st.tabs(["📊 Active Journeys Grid", "📢 Corporate News Feed"])
         
         with tab_dash:
+            # === NEW SEARCH FEATURE ===
+            st.markdown("#### 🔍 Employee Directory Search")
+            search_query = st.text_input("Search active employees by ID, Name, Department, or Role:", placeholder="e.g. SG0001, John, HR, Admin...").strip().upper()
+            
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
+            
+            # Filter dataset based on the search input
+            if search_query:
+                cursor.execute("""
+                    SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved 
+                    FROM new_hires 
+                    WHERE status = 'Active' AND (
+                        UPPER(name) LIKE ? OR 
+                        UPPER(employee_id) LIKE ? OR 
+                        UPPER(role) LIKE ? OR 
+                        UPPER(department) LIKE ?
+                    )
+                """, (f"%{search_query}%", f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"))
+            else:
+                cursor.execute("SELECT id, employee_id, name, role, department, manager, start_date, mobile_number, photo_path, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
+            
             active_dataset = cursor.fetchall()
             conn.close()
             
             if not active_dataset:
-                st.info("No active onboarding profiles running inside the logistics roadmap track pipelines.")
+                if search_query:
+                    st.warning(f"No active employees found matching '{search_query}'.")
+                else:
+                    st.info("No active onboarding profiles running inside the logistics roadmap track pipelines.")
             else:
+                if search_query:
+                    st.success(f"Found {len(active_dataset)} matching profile(s).")
+                    
                 for node in active_dataset:
                     h_id, emp_id, name, role, dept, manager, start_date, mobile, photo, p3_a, p4_a, p5_a = node
                     ovr_pct, p_breakdown = calculate_metrics_pipeline(h_id)
@@ -1071,3 +1096,6 @@ elif st.session_state["user_role"] == "Employer":
                         st.rerun()
                         
         conn.close()
+```eof
+
+Copy this code and save it to your `app.py` file. Run your app and navigate to **"Corporate Experience Landing"** -> **"Active Journeys Grid"** to test out the new search bar!
