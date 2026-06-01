@@ -26,6 +26,13 @@ def init_database():
         name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, 
         gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
         phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
+    
+    # Safely upgrade existing database with new birthday column if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE new_hires ADD COLUMN birthday TEXT")
+    except sqlite3.OperationalError:
+        pass # Column already exists, safe to ignore
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, 
         password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', 
@@ -628,15 +635,24 @@ elif st.session_state["user_role"] == "Employer":
             input_name = st.text_input("Candidate Full Name:")
             input_mobile = st.text_input("Mobile Number (Numbers only, e.g. 639123456789):").strip()
             input_gender = st.selectbox("Gender:", ["Male", "Female"])
+            
+            # --- NEW BIRTHDAY FIELD ---
+            input_birthday = st.date_input("Date of Birth:", min_value=datetime(1950, 1, 1), max_value=datetime.now())
+            
             input_dept = st.selectbox("Department:", YCH_DEPARTMENTS)
             input_role = st.text_input("Job Position:")
+            
             input_manager = st.selectbox("Reporting Manager:", manager_options) if manager_options else "No Manager Assigned"
             input_date_picker = st.date_input("Start Date:")
             uploaded_pic = st.file_uploader("Employee Photo:", type=["png", "jpg", "jpeg"])
             
             if st.form_submit_button("Deploy Onboarding Track", type="primary"):
                 clean_mob = re.sub(r'\D', '', input_mobile)
-                if not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
+                
+                # --- NEW MANAGER REQUIREMENT VALIDATION ---
+                if input_manager == "No Manager Assigned" or not manager_options:
+                    st.error("Validation Failed: An Assigned Reporting Manager is required! Please add one in 'System Administration' first.")
+                elif not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
                     st.error("Validation Failed: ID must be 2 Letters + 4 Numbers.")
                 elif input_name == "" or len(clean_mob) < 8:
                     st.error("Validation Failed: Check missing fields or mobile length.")
@@ -652,10 +668,10 @@ elif st.session_state["user_role"] == "Employer":
                     cursor = conn.cursor()
                     try:
                         cursor.execute("""
-                            INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, photo_path) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, birthday, photo_path) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (input_emp_id, input_mobile, input_name, input_role, input_dept, 
-                              input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, photo_save_path))
+                              input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, input_birthday.strftime("%B %d, %Y"), photo_save_path))
                         new_id = cursor.lastrowid
                         
                         cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
@@ -694,7 +710,7 @@ elif st.session_state["user_role"] == "Employer":
                     finally:
                         conn.close()
 
-    # --- WORKSPACE 3: CHECKLIST VIEW ---
+    # --- WORKSPACE 3: CHECKLIST VIEW & EDIT PROFILE ---
     elif menu == "📋 Task Checklist View":
         st.markdown("### 📋 Phased Checklist Processing & Verification Layer")
         conn = get_db_connection()
@@ -702,6 +718,7 @@ elif st.session_state["user_role"] == "Employer":
         cursor.execute("SELECT id, employee_id, name, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
         active_dataset = cursor.fetchall()
         conn.close()
+        
         if not active_dataset:
             st.info("No active employee tracking profiles detected.")
         else:
@@ -711,6 +728,54 @@ elif st.session_state["user_role"] == "Employer":
             worker_record = [a for a in active_dataset if a[0] == sel_id][0]
             p3_app, p4_app, p5_app = worker_record[3], worker_record[4], worker_record[5]
             
+            # --- NEW EDIT EMPLOYEE PROFILE SECTION ---
+            with st.expander("✏️ Edit Employee Profile Information"):
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT name, mobile_number, role, department, manager, gender, birthday, status FROM new_hires WHERE id = ?", (sel_id,))
+                emp_details = cursor.fetchone()
+                cursor.execute("SELECT manager_name FROM managers ORDER BY manager_name ASC")
+                all_mgrs = [r[0] for r in cursor.fetchall()]
+                conn.close()
+                
+                if emp_details:
+                    with st.form("edit_profile_form"):
+                        e_name = st.text_input("Full Name", value=emp_details[0])
+                        e_mobile = st.text_input("Mobile Number", value=emp_details[1])
+                        e_role = st.text_input("Role", value=emp_details[2])
+                        
+                        try:
+                            dept_idx = YCH_DEPARTMENTS.index(emp_details[3])
+                        except ValueError:
+                            dept_idx = 0
+                        e_dept = st.selectbox("Department", YCH_DEPARTMENTS, index=dept_idx)
+                        
+                        # Handle manager selection safely
+                        mgr_idx = 0
+                        if emp_details[4] in all_mgrs:
+                            mgr_idx = all_mgrs.index(emp_details[4])
+                        e_mgr = st.selectbox("Reporting Manager", all_mgrs) if all_mgrs else "No Manager Assigned"
+                        
+                        # Parse birthday back to date object
+                        try:
+                            bday_val = datetime.strptime(emp_details[6], "%B %d, %Y").date() if emp_details[6] else datetime(1990, 1, 1).date()
+                        except:
+                            bday_val = datetime(1990, 1, 1).date()
+                        e_bday = st.date_input("Birthday", value=bday_val, min_value=datetime(1950, 1, 1), max_value=datetime.now())
+                        
+                        if st.form_submit_button("💾 Save Changes", type="primary"):
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE new_hires 
+                                SET name = ?, mobile_number = ?, role = ?, department = ?, manager = ?, birthday = ?
+                                WHERE id = ?
+                            """, (e_name, e_mobile, e_role, e_dept, e_mgr, e_bday.strftime("%B %d, %Y"), sel_id))
+                            conn.commit()
+                            conn.close()
+                            st.success("Profile updated successfully!")
+                            st.rerun()
+
             left_pane, right_pane = st.columns([2, 1])
             with left_pane:
                 with st.expander("➕ Add Custom Task to This Employee", expanded=False):
@@ -902,13 +967,13 @@ elif st.session_state["user_role"] == "Employer":
             st.markdown("#### 📥 Data Export")
             target_dataset_selection = st.selectbox("Select Target Segment Context:", ["Active Roster", "Archived Roster", "Complete Master List"])
             conn = get_db_connection()
-            base_cmd = "SELECT employee_id, name, mobile_number, gender, department, role, manager, start_date, status FROM new_hires"
+            base_cmd = "SELECT employee_id, name, mobile_number, gender, birthday, department, role, manager, start_date, status FROM new_hires"
             if "Active" in target_dataset_selection: base_cmd += " WHERE status = 'Active'"; fn = "active_employees.xlsx"
             elif "Archived" in target_dataset_selection: base_cmd += " WHERE status = 'Archived'"; fn = "archived_employees.xlsx"
             else: fn = "all_employees.xlsx"
             df_out = pd.read_sql_query(base_cmd, conn)
             conn.close()
-            df_out.columns = ["Employee ID", "Full Name", "Mobile Number", "Gender", "Department", "Position", "Reporting Manager", "Start Date", "Status"]
+            df_out.columns = ["Employee ID", "Full Name", "Mobile Number", "Gender", "Birthday", "Department", "Position", "Reporting Manager", "Start Date", "Status"]
             ex_stream = io.BytesIO()
             with pd.ExcelWriter(ex_stream, engine='openpyxl') as writer: df_out.to_excel(writer, index=False, sheet_name='YCH_Roster_Audit')
             st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
@@ -946,7 +1011,7 @@ elif st.session_state["user_role"] == "Employer":
                         conn.close()
                         st.rerun()
                         
-            st.markdown("#### 👤 Managers Masterlist")
+            st.markdown("#### 👤 Manage Operation Managers")
             with st.form("admin_m_form_v2", clear_on_submit=True):
                 new_manager = st.text_input("Register New Operation Manager / PIC:")
                 if st.form_submit_button("➕ Save Manager to System") and new_manager != "":
@@ -959,6 +1024,26 @@ elif st.session_state["user_role"] == "Employer":
                     except sqlite3.IntegrityError: st.error("Entry already exists.")
                     conn.close()
                     st.rerun()
+            
+            # --- NEW REMOVE MANAGER FEATURE ---
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, manager_name FROM managers ORDER BY manager_name ASC")
+            existing_managers = cursor.fetchall()
+            conn.close()
+            
+            if existing_managers:
+                with st.form("remove_mgr_form"):
+                    mgr_dict = {m[1]: m[0] for m in existing_managers}
+                    mgr_to_remove = st.selectbox("Select Manager to Remove:", list(mgr_dict.keys()))
+                    if st.form_submit_button("🗑️ Remove Manager"):
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM managers WHERE id = ?", (mgr_dict[mgr_to_remove],))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"Manager '{mgr_to_remove}' has been removed from the system.")
+                        st.rerun()
 
         with adm_c2:
             st.markdown("#### 📢 Post Corporate Announcement")
@@ -1096,3 +1181,4 @@ elif st.session_state["user_role"] == "Employer":
                         st.rerun()
                         
         conn.close()
+```eof
