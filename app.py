@@ -842,6 +842,39 @@ elif st.session_state["user_role"] == "Employer":
         conn.close()
         if df_exec.empty: st.info("No compiled employee logs detected.")
         else:
+            # === NEW HEADCOUNT & MONTHLY HIRES SUMMARY ===
+            st.markdown("#### 📊 Headcount & Monthly Hiring Summary")
+            
+            # Parse dates to calculate current month's hires
+            df_exec['start_date_dt'] = pd.to_datetime(df_exec['start_date'], format='%B %d, %Y', errors='coerce')
+            curr_month = datetime.now().month
+            curr_year = datetime.now().year
+            df_exec['hired_this_month'] = (df_exec['start_date_dt'].dt.month == curr_month) & (df_exec['start_date_dt'].dt.year == curr_year)
+            
+            # Create a summary table grouped by Department
+            summary_df = df_exec.groupby('department').agg(
+                Total_Headcount=('employee_id', 'count'),
+                Active_Headcount=('status', lambda x: (x == 'Active').sum()),
+                Hired_This_Month=('hired_this_month', 'sum')
+            ).reset_index()
+            summary_df.rename(columns={'department': 'Department', 'Total_Headcount': 'Total Headcount', 'Active_Headcount': 'Active Headcount', 'Hired_This_Month': 'Hired This Month'}, inplace=True)
+            
+            # Display high-level metrics
+            sm1, sm2, sm3 = st.columns(3)
+            sm1.metric("Total Enterprise Headcount", summary_df['Total Headcount'].sum())
+            sm2.metric("Total Active Headcount", summary_df['Active Headcount'].sum())
+            sm3.metric(f"Hired This Month ({datetime.now().strftime('%B')})", summary_df['Hired This Month'].sum())
+            
+            # Display the data table
+            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+            
+            # Export button specifically for this new summary
+            sum_csv = summary_df.to_csv(index=False).encode('utf-8')
+            st.download_button(label="📥 Export Headcount Summary (CSV)", data=sum_csv, file_name=f"Headcount_Summary_{datetime.now().strftime('%Y_%m')}.csv", mime="text/csv", use_container_width=True)
+            
+            st.markdown("<hr>", unsafe_allow_html=True)
+            # === END NEW SUMMARY ===
+
             st.markdown("#### 📈 Operational Dashboard Breakdown")
             ec1, ec2 = st.columns(2)
             with ec1:
