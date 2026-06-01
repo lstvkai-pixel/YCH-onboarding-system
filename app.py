@@ -241,7 +241,8 @@ for state_key, default_value in [
     ("change_pwd", False),
     ("confirm_delete_stage", False), 
     ("target_purge_id", None), 
-    ("ann_posted_success", False)
+    ("ann_posted_success", False),
+    ("profile_updated", False)  # Added this specifically for the Save Button fix!
 ]:
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
@@ -649,7 +650,7 @@ elif st.session_state["user_role"] == "Employer":
             if st.form_submit_button("Deploy Onboarding Track", type="primary"):
                 clean_mob = re.sub(r'\D', '', input_mobile)
                 
-                # --- NEW MANAGER REQUIREMENT VALIDATION ---
+                # --- MANAGER REQUIREMENT VALIDATION ---
                 if input_manager == "No Manager Assigned" or not manager_options:
                     st.error("Validation Failed: An Assigned Reporting Manager is required! Please add one in 'System Administration' first.")
                 elif not re.match(r"^[A-Z]{2}[0-9]{4}$", input_emp_id):
@@ -713,6 +714,12 @@ elif st.session_state["user_role"] == "Employer":
     # --- WORKSPACE 3: CHECKLIST VIEW & EDIT PROFILE ---
     elif menu == "📋 Task Checklist View":
         st.markdown("### 📋 Phased Checklist Processing & Verification Layer")
+        
+        # 🟢 Display Success Message here so it persists after page reload
+        if st.session_state.get("profile_updated"):
+            st.success("✅ Employee profile information has been successfully saved and updated!")
+            st.session_state["profile_updated"] = False
+            
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT id, employee_id, name, phase3_approved, phase4_approved, phase5_approved FROM new_hires WHERE status = 'Active'")
@@ -728,7 +735,7 @@ elif st.session_state["user_role"] == "Employer":
             worker_record = [a for a in active_dataset if a[0] == sel_id][0]
             p3_app, p4_app, p5_app = worker_record[3], worker_record[4], worker_record[5]
             
-            # --- NEW EDIT EMPLOYEE PROFILE SECTION ---
+            # --- FIXED EDIT EMPLOYEE PROFILE SECTION ---
             with st.expander("✏️ Edit Employee Profile Information"):
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -750,13 +757,13 @@ elif st.session_state["user_role"] == "Employer":
                             dept_idx = 0
                         e_dept = st.selectbox("Department", YCH_DEPARTMENTS, index=dept_idx)
                         
-                        # Handle manager selection safely
+                        # 🟢 Handle manager selection safely WITH index parameter fixed
                         mgr_idx = 0
                         if emp_details[4] in all_mgrs:
                             mgr_idx = all_mgrs.index(emp_details[4])
-                        e_mgr = st.selectbox("Reporting Manager", all_mgrs) if all_mgrs else "No Manager Assigned"
+                        e_mgr = st.selectbox("Reporting Manager", all_mgrs, index=mgr_idx) if all_mgrs else "No Manager Assigned"
                         
-                        # Parse birthday back to date object
+                        # Parse birthday back to date object safely
                         try:
                             bday_val = datetime.strptime(emp_details[6], "%B %d, %Y").date() if emp_details[6] else datetime(1990, 1, 1).date()
                         except:
@@ -773,7 +780,9 @@ elif st.session_state["user_role"] == "Employer":
                             """, (e_name, e_mobile, e_role, e_dept, e_mgr, e_bday.strftime("%B %d, %Y"), sel_id))
                             conn.commit()
                             conn.close()
-                            st.success("Profile updated successfully!")
+                            
+                            # 🟢 Set session state flag instead of wiping the success message instantly
+                            st.session_state["profile_updated"] = True
                             st.rerun()
 
             left_pane, right_pane = st.columns([2, 1])
@@ -1025,7 +1034,7 @@ elif st.session_state["user_role"] == "Employer":
                     conn.close()
                     st.rerun()
             
-            # --- NEW REMOVE MANAGER FEATURE ---
+            # --- REMOVE MANAGER FEATURE ---
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT id, manager_name FROM managers ORDER BY manager_name ASC")
