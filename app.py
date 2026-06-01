@@ -1096,6 +1096,3 @@ elif st.session_state["user_role"] == "Employer":
                         st.rerun()
                         
         conn.close()
-```eof
-
-Copy this code and save it to your `app.py` file. Run your app and navigate to **"Corporate Experience Landing"** -> **"Active Journeys Grid"** to test out the new search bar!
