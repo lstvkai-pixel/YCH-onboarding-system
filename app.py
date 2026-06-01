@@ -582,7 +582,7 @@ elif st.session_state["user_role"] == "Employer":
                             pending_phases = [p for p, pct in p_breakdown.items() if pct < 100]
                             
                             if pending_phases:
-                                reminder_section = "\n\n⚠️ *Action Required:*\nYou have pending tasks in the following areas:\n" + "\n".join([f"• {p}" for p in pending_phases]) + "\n\nPlease log in to the YCH Portal to complete these remaining requirements as soon as possible."
+                                reminder_section = "\n\n⚠️ *Action Required:*\nYou have pending tasks in the following areas:\n" + "\n".join([f"• {p}" for p in pending_phases]) + "\n\nKindly approach the HR Department to facilitate the completion of your remaining onboarding requirements at your earliest convenience."
                             else:
                                 reminder_section = "\n\n🎉 Congratulations! All your onboarding requirements are fully complete."
 
