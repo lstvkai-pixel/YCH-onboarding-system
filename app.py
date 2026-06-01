@@ -560,27 +560,43 @@ elif st.session_state["user_role"] == "Employer":
                             st.progress(ovr_pct / 100)
                             st.markdown("<br>", unsafe_allow_html=True)
                             
+# --- 1. Channel Broadcast Message ---
                             raw_channel_msg = (
-    f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
-    f"*Employee Details*\n"
-    f"• *ID:* {emp_id}\n"
-    f"• *Name:* {name}\n"
-    f"• *Dept:* {dept}\n"
-    f"• *Role:* {role}\n"
-    f"• *Manager:* {manager}\n"
-    f"• *Start:* {start_date}\n\n"
-    f"Kindly ensure that the assigned representative is available to facilitate the orientation, provide the necessary briefings, and introduce department-specific processes and requirements.\n\n"
-    f"Thank you for your cooperation in ensuring a seamless onboarding experience for our new employee.\n\n"
-    f"*YCH Human Resources Team*"
-)
+                                f"🚨 *[YCH_HR Alert] New Employee Onboarding Scheduled*\n\n"
+                                f"*Employee Details*\n"
+                                f"• *ID:* {emp_id}\n"
+                                f"• *Name:* {name}\n"
+                                f"• *Dept:* {dept}\n"
+                                f"• *Role:* {role}\n"
+                                f"• *Manager:* {manager}\n"
+                                f"• *Start:* {start_date}\n\n"
+                                f"Kindly ensure that the assigned representative is available to facilitate the orientation, provide the necessary briefings, and introduce department-specific processes and requirements.\n\n"
+                                f"Thank you for your cooperation in ensuring a seamless onboarding experience for our new employee.\n\n"
+                                f"*YCH Human Resources Team*"
+                            )
                             encoded_channel = urllib.parse.quote(raw_channel_msg)
                             channel_url = f"https://api.whatsapp.com/send?phone=&text={encoded_channel}"
                             
-                            raw_progress_msg = f"📊 *YCH Progress Update*\n\n• *ID:* {emp_id}\n• *Name:* {name}\n\n📈 *Overall Completion:* {ovr_pct}%"
+                            # --- 2. Dynamic Progress Update with Reminders ---
+                            # Find which phases are not yet at 100%
+                            pending_phases = [p for p, pct in p_breakdown.items() if pct < 100]
+                            
+                            if pending_phases:
+                                reminder_section = "\n\n⚠️ *Action Required:*\nYou have pending tasks in the following areas:\n" + "\n".join([f"• {p}" for p in pending_phases]) + "\n\nPlease log in to the YCH Portal to complete these remaining requirements as soon as possible."
+                            else:
+                                reminder_section = "\n\n🎉 Congratulations! All your onboarding requirements are fully complete."
+
+                            raw_progress_msg = (
+                                f"📊 *YCH Progress Update*\n\n"
+                                f"• *ID:* {emp_id}\n"
+                                f"• *Name:* {name}\n\n"
+                                f"📈 *Overall Completion:* {ovr_pct}%"
+                                f"{reminder_section}"
+                            )
+                            
                             clean_phone = re.sub(r'\D', '', mobile)
                             encoded_progress = urllib.parse.quote(raw_progress_msg)
                             employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
-
                             st.markdown(f"""
                                 <div style='display: flex; gap: 10px; width: 100%;'>
                                     <a href='{channel_url}' target='_blank' style='flex: 1; text-decoration: none;'>
