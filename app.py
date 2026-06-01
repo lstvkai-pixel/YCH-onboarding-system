@@ -398,7 +398,8 @@ elif st.session_state["user_role"] == "Employer":
         with k4: st.markdown(f'<div class="kpi-container"><div class="kpi-icon-box">👤+</div><div class="kpi-text-box"><p class="kpi-label">New Hires</p><p class="kpi-value">{act_c}</p></div></div>', unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        tab_dash, tab_news = st.tabs(["📊 Active Journeys Grid", "📢 Corporate News Feed"])
+        # === UPDATED: Added a dedicated tab for Completed/Archived profiles ===
+        tab_dash, tab_archived, tab_news = st.tabs(["📊 Active Journeys Grid", "🎓 Completed Profiles", "📢 Corporate News Feed"])
         
         with tab_dash:
             st.markdown("#### 🔍 Employee Directory Search")
@@ -478,19 +479,18 @@ elif st.session_state["user_role"] == "Employer":
                                 </div>
                             """, unsafe_allow_html=True)
                             
-                            if ovr_pct == 100 and p3_a and p4_a and p5_a:
+                            # === NEW: Graduate & Archive Logic ===
+                            if ovr_pct == 100:
                                 st.markdown("<br>", unsafe_allow_html=True)
                                 st.success("🎓 Onboarding Fully Completed!")
-                                
-                                # This button moves the employee to the Completed/Archived list
-                                if st.button("🎓 Completed & Archive Profile", key=f"archive_{emp_id}"):
-                                    archive_conn = get_db_connection()
-                                    archive_cursor = archive_conn.cursor()
-                                    archive_cursor.execute("UPDATE new_hires SET status = 'Archived' WHERE id = ?", (h_id,))
-                                    archive_conn.commit()
-                                    archive_conn.close()
-                                    st.success(f"{name} has been successfully archived!")
+                                if st.button(f"🎓 Graduate & Archive {name}", key=f"archive_{emp_id}", type="primary"):
+                                    a_conn = get_db_connection()
+                                    a_cursor = a_conn.cursor()
+                                    a_cursor.execute("UPDATE new_hires SET status = 'Archived' WHERE id = ?", (h_id,))
+                                    a_conn.commit()
+                                    a_conn.close()
                                     st.rerun()
+
                         st.markdown("<br>", unsafe_allow_html=True)
                         m_cols = st.columns(5)
                         for step_idx, phase_spec in enumerate(PHASE_GROUPS):
@@ -500,7 +500,22 @@ elif st.session_state["user_role"] == "Employer":
                                 bg_color = "#3B82F6" if p_val == 100 else ("#F59E0B" if p_val > 0 else "#E2E8F0")
                                 text_color = "white" if p_val > 0 else "#64748B"
                                 st.markdown(f"<div style='text-align:center; font-size:12px; background:{bg_color}; color:{text_color}; padding:5px; border-radius:4px;'><b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
-                        
+
+        # === NEW TAB: View Archived Employees ===
+        with tab_archived:
+            st.markdown("### 🎓 Officially Completed & Archived Profiles")
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT employee_id, name, role, department, start_date FROM new_hires WHERE status = 'Archived' ORDER BY id DESC")
+            archived_data = cursor.fetchall()
+            conn.close()
+            
+            if not archived_data:
+                st.info("No employees have been archived/completed yet.")
+            else:
+                df_archived = pd.DataFrame(archived_data, columns=["Employee ID", "Full Name", "Job Role", "Department", "Start Date"])
+                st.dataframe(df_archived, use_container_width=True, hide_index=True)
+
         with tab_news:
             st.markdown("### 📢 YCH Group Corporate News & Announcement Center")
             curr_time_str = datetime.now().strftime("%Y-%m-%d")
@@ -851,16 +866,12 @@ elif st.session_state["user_role"] == "Employer":
         conn.close()
         if df_exec.empty: st.info("No compiled employee logs detected.")
         else:
-            # === NEW HEADCOUNT & MONTHLY HIRES SUMMARY ===
             st.markdown("#### 📊 Headcount & Monthly Hiring Summary")
-            
-            # Parse dates to calculate current month's hires
             df_exec['start_date_dt'] = pd.to_datetime(df_exec['start_date'], format='%B %d, %Y', errors='coerce')
             curr_month = datetime.now().month
             curr_year = datetime.now().year
             df_exec['hired_this_month'] = (df_exec['start_date_dt'].dt.month == curr_month) & (df_exec['start_date_dt'].dt.year == curr_year)
             
-            # Create a summary table grouped by Department
             summary_df = df_exec.groupby('department').agg(
                 Total_Headcount=('employee_id', 'count'),
                 Active_Headcount=('status', lambda x: (x == 'Active').sum()),
@@ -868,21 +879,16 @@ elif st.session_state["user_role"] == "Employer":
             ).reset_index()
             summary_df.rename(columns={'department': 'Department', 'Total_Headcount': 'Total Headcount', 'Active_Headcount': 'Active Headcount', 'Hired_This_Month': 'Hired This Month'}, inplace=True)
             
-            # Display high-level metrics
             sm1, sm2, sm3 = st.columns(3)
             sm1.metric("Total Enterprise Headcount", summary_df['Total Headcount'].sum())
             sm2.metric("Total Active Headcount", summary_df['Active Headcount'].sum())
             sm3.metric(f"Hired This Month ({datetime.now().strftime('%B')})", summary_df['Hired This Month'].sum())
             
-            # Display the data table
             st.dataframe(summary_df, use_container_width=True, hide_index=True)
-            
-            # Export button specifically for this new summary
             sum_csv = summary_df.to_csv(index=False).encode('utf-8')
             st.download_button(label="📥 Export Headcount Summary (CSV)", data=sum_csv, file_name=f"Headcount_Summary_{datetime.now().strftime('%Y_%m')}.csv", mime="text/csv", use_container_width=True)
             
             st.markdown("<hr>", unsafe_allow_html=True)
-            # === END NEW SUMMARY ===
 
             st.markdown("#### 📈 Operational Dashboard Breakdown")
             ec1, ec2 = st.columns(2)
