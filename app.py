@@ -481,7 +481,16 @@ elif st.session_state["user_role"] == "Employer":
                             if ovr_pct == 100 and p3_a and p4_a and p5_a:
                                 st.markdown("<br>", unsafe_allow_html=True)
                                 st.success("🎓 Onboarding Fully Completed!")
-
+                                
+                                # This button moves the employee to the Completed/Archived list
+                                if st.button("🎓 Completed & Archive Profile", key=f"archive_{emp_id}"):
+                                    archive_conn = get_db_connection()
+                                    archive_cursor = archive_conn.cursor()
+                                    archive_cursor.execute("UPDATE new_hires SET status = 'Archived' WHERE id = ?", (h_id,))
+                                    archive_conn.commit()
+                                    archive_conn.close()
+                                    st.success(f"{name} has been successfully archived!")
+                                    st.rerun()
                         st.markdown("<br>", unsafe_allow_html=True)
                         m_cols = st.columns(5)
                         for step_idx, phase_spec in enumerate(PHASE_GROUPS):
