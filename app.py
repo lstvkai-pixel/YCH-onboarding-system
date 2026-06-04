@@ -276,7 +276,9 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown(f"👤 **User Code:** <span style='background-color:rgba(255,255,255,0.2); padding: 3px 8px; border-radius: 4px; color: #FFFFFF;'>{st.session_state['username']}</span>", unsafe_allow_html=True)
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
-    emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center"])
+    
+    # === UPDATED: ADDED CORPORATE NEWS FEED TAB ===
+    emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center", "📢 Corporate News Feed"])
     
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -360,6 +362,44 @@ if st.session_state["user_role"] == "Employee":
                             else:
                                 st.info("Preview not available.")
                     st.markdown("---")
+        
+        # === NEW: EMPLOYEE PORTAL CORPORATE NEWS LOGIC ===
+        elif emp_menu == "📢 Corporate News Feed":
+            st.markdown("### 📢 YCH Group Corporate News & Announcement Center")
+            curr_time_str = datetime.now().strftime("%Y-%m-%d")
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT title, category, content, date_posted, file_path FROM announcements WHERE expiry_date IS NULL OR expiry_date = '' OR expiry_date >= ? ORDER BY id DESC", (curr_time_str,))
+            notices = cursor.fetchall()
+            conn.close()
+            
+            if not notices:
+                st.caption("_No active corporate announcements posted currently._")
+            else:
+                for title, cat, content, dt, f_path in notices:
+                    with st.container(border=True):
+                        st.markdown(f"#### {title}")
+                        st.markdown(f"<span style='background-color:#E2E8F0; padding:3px 8px; border-radius:12px; font-size:12px; font-weight:bold; color:#003366;'>{cat}</span> | <span style='font-size:12px; color:gray;'>Posted on {dt}</span>", unsafe_allow_html=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.write(content)
+                        
+                        if f_path and os.path.exists(f_path):
+                            file_ext = f_path.split('.')[-1].lower()
+                            st.markdown("---")
+                            if file_ext in ['png', 'jpg', 'jpeg']:
+                                st.image(f_path, use_container_width=True)
+                            elif file_ext == 'pdf':
+                                with open(f_path, "rb") as f:
+                                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+                                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0" width="100%" height="700px" style="border: 1px solid #E2E8F0; border-radius: 8px;"></iframe>'
+                                st.markdown(pdf_display, unsafe_allow_html=True)
+                            elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']:
+                                st.info("Preview not available for Office documents. Please download to view.")
+                                with open(f_path, "rb") as file_bytes:
+                                    # Unique key for employee download to prevent Streamlit widget errors
+                                    st.download_button(label=f"📥 Download {os.path.basename(f_path)}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"emp_dl_ann_doc_{dt}_{title}")
+                            else:
+                                st.info("Preview not available for this file type.")
     st.stop()
 
 # ==========================================
