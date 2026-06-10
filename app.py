@@ -661,7 +661,18 @@ elif st.session_state["user_role"] == "Employer":
                         st.success(f"🎉 Success: Employee {input_name} ({input_emp_id}) added alongside all roadmap tasks!")
                         
                         st.markdown("#### 📲 Send Credentials")
-                        wa_msg = f"Welcome to YCH! Your account is ready.\n\nID: {input_emp_id}\nPass: YCH1234\n\nPlease login and update your password."
+                        
+                        # Replace this URL with your actual deployed website link
+                        app_url = "https://ych-app-system-cvntwowxdtptc5qq45adsv.streamlit.app/" 
+                        
+                        wa_msg = (
+                            f"Welcome to YCH! Your account is ready.\n\n"
+                            f"ID: {input_emp_id}\n"
+                            f"Pass: YCH1234\n\n"
+                            f"Access the portal here: {app_url}\n\n"
+                            f"Please login and update your password."
+                        )
+                        
                         wa_link = f"https://wa.me/{clean_mob}?text={urllib.parse.quote(wa_msg)}"
                         st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; padding:10px; background-color:#25D366; color:white; border:none; border-radius:5px; font-weight:bold;">📲 Click to Send WhatsApp Credentials</button></a>', unsafe_allow_html=True)
                         
