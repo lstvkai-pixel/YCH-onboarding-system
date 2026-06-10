@@ -508,6 +508,18 @@ elif st.session_state["user_role"] == "Employer":
                             encoded_progress = urllib.parse.quote(raw_progress_msg)
                             employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
                             
+                            # === ADDED: Credentials WhatsApp Link Logic ===
+                            app_url = "https://ych-app-system-cvntwowxdtptc5qq45adsv.streamlit.app/"
+                            raw_cred_msg = (
+                                f"Welcome to YCH! Your account is ready.\n\n"
+                                f"ID: {emp_id}\n"
+                                f"Pass: YCH1234\n\n"
+                                f"Access the portal here: {app_url}\n\n"
+                                f"Please login and update your password."
+                            )
+                            encoded_credentials = urllib.parse.quote(raw_cred_msg)
+                            cred_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_credentials}"
+                            
                             st.markdown(f"""
                                 <div style='display: flex; gap: 10px; width: 100%;'>
                                     <a href='{channel_url}' target='_blank' style='flex: 1; text-decoration: none;'>
@@ -515,6 +527,9 @@ elif st.session_state["user_role"] == "Employer":
                                     </a>
                                     <a href='{employee_sms_url}' target='_blank' style='flex: 1; text-decoration: none;'>
                                         <button class='ych-action-btn' style='background-color: #25D366;'>📲 Progress</button>
+                                    </a>
+                                    <a href='{cred_sms_url}' target='_blank' style='flex: 1; text-decoration: none;'>
+                                        <button class='ych-action-btn' style='background-color: #EAA221;'>🔑 Credentials</button>
                                     </a>
                                 </div>
                             """, unsafe_allow_html=True)
@@ -662,7 +677,6 @@ elif st.session_state["user_role"] == "Employer":
                         
                         st.markdown("#### 📲 Send Credentials")
                         
-                        # Replace this URL with your actual deployed website link
                         app_url = "https://ych-app-system-cvntwowxdtptc5qq45adsv.streamlit.app/" 
                         
                         wa_msg = (
