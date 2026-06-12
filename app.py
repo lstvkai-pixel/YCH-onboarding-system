@@ -28,14 +28,9 @@ def init_database():
     cursor.execute('''CREATE TABLE IF NOT EXISTS new_hires (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT, mobile_number TEXT, 
         name TEXT, role TEXT, department TEXT, manager TEXT, start_date TEXT, 
-        gender TEXT, status TEXT DEFAULT "Active", photo_path TEXT, 
+        status TEXT DEFAULT "Active", photo_path TEXT, 
         phase3_approved INTEGER DEFAULT 0, phase4_approved INTEGER DEFAULT 0, phase5_approved INTEGER DEFAULT 0)''')
     
-    try:
-        cursor.execute("ALTER TABLE new_hires ADD COLUMN birthday TEXT")
-    except sqlite3.OperationalError:
-        pass # Column already exists, safe to ignore
-
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, employee_id TEXT UNIQUE, 
         password TEXT DEFAULT 'YCH1234', role_type TEXT DEFAULT 'Employee', 
@@ -277,7 +272,6 @@ if st.session_state["user_role"] == "Employee":
     st.sidebar.markdown("🔰 **Access Level:** Employee Dashboard")
     st.sidebar.markdown("---")
     
-    # === UPDATED: ADDED CORPORATE NEWS FEED TAB ===
     emp_menu = st.sidebar.radio("WORK ENVIRONMENT", ["📋 My Onboarding Journey Map", "📚 Library Training center", "📢 Corporate News Feed"])
     
     conn = get_db_connection()
@@ -363,7 +357,6 @@ if st.session_state["user_role"] == "Employee":
                                 st.info("Preview not available.")
                     st.markdown("---")
         
-        # === NEW: EMPLOYEE PORTAL CORPORATE NEWS LOGIC ===
         elif emp_menu == "📢 Corporate News Feed":
             st.markdown("### 📢 YCH Group Corporate News & Announcement Center")
             curr_time_str = datetime.now().strftime("%Y-%m-%d")
@@ -396,7 +389,6 @@ if st.session_state["user_role"] == "Employee":
                             elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']:
                                 st.info("Preview not available for Office documents. Please download to view.")
                                 with open(f_path, "rb") as file_bytes:
-                                    # Unique key for employee download to prevent Streamlit widget errors
                                     st.download_button(label=f"📥 Download {os.path.basename(f_path)}", data=file_bytes.read(), file_name=os.path.basename(f_path), key=f"emp_dl_ann_doc_{dt}_{title}")
                             else:
                                 st.info("Preview not available for this file type.")
@@ -438,7 +430,6 @@ elif st.session_state["user_role"] == "Employer":
         with k4: st.markdown(f'<div class="kpi-container"><div class="kpi-icon-box">👤+</div><div class="kpi-text-box"><p class="kpi-label">New Hires</p><p class="kpi-value">{act_c}</p></div></div>', unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        # === UPDATED: Added a dedicated tab for Completed/Archived profiles ===
         tab_dash, tab_archived, tab_news = st.tabs(["📊 Active Journeys Grid", "🎓 Completed Profiles", "📢 Corporate News Feed"])
         
         with tab_dash:
@@ -508,7 +499,7 @@ elif st.session_state["user_role"] == "Employer":
                             encoded_progress = urllib.parse.quote(raw_progress_msg)
                             employee_sms_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_progress}"
                             
-                            # === ADDED: Credentials WhatsApp Link Logic ===
+                            # Credentials WhatsApp Link Logic
                             app_url = "https://ych-app-system-cvntwowxdtptc5qq45adsv.streamlit.app/"
                             raw_cred_msg = (
                                 f"Welcome to YCH! Your account is ready.\n\n"
@@ -534,7 +525,7 @@ elif st.session_state["user_role"] == "Employer":
                                 </div>
                             """, unsafe_allow_html=True)
                             
-                            # === NEW: Completed & Archive Logic ===
+                            # Completed & Archive Logic
                             if ovr_pct == 100:
                                 st.markdown("<br>", unsafe_allow_html=True)
                                 st.success("🎓 Onboarding Fully Completed!")
@@ -556,7 +547,7 @@ elif st.session_state["user_role"] == "Employer":
                                 text_color = "white" if p_val > 0 else "#64748B"
                                 st.markdown(f"<div style='text-align:center; font-size:12px; background:{bg_color}; color:{text_color}; padding:5px; border-radius:4px;'><b>{p_code}</b><br>{p_val}%</div>", unsafe_allow_html=True)
 
-        # === NEW TAB: View Archived Employees ===
+        # View Archived Employees
         with tab_archived:
             st.markdown("### 🎓 Officially Completed & Archived Profiles")
             conn = get_db_connection()
@@ -590,7 +581,6 @@ elif st.session_state["user_role"] == "Employer":
                         st.markdown("<br>", unsafe_allow_html=True)
                         st.write(content)
                         
-                        # Preview Announcement File Directly
                         if f_path and os.path.exists(f_path):
                             file_ext = f_path.split('.')[-1].lower()
                             st.markdown("---")
@@ -621,8 +611,6 @@ elif st.session_state["user_role"] == "Employer":
             input_emp_id = st.text_input("Employee ID Number Code:", placeholder="Format: SG0001").strip().upper()
             input_name = st.text_input("Candidate Full Name:")
             input_mobile = st.text_input("Mobile Number (Numbers only, e.g. 639123456789):").strip()
-            input_gender = st.selectbox("Gender:", ["Male", "Female"])
-            input_birthday = st.date_input("Date of Birth:", min_value=datetime(1950, 1, 1), max_value=datetime.now())
             input_dept = st.selectbox("Department:", YCH_DEPARTMENTS)
             input_role = st.text_input("Job Position:")
             input_manager = st.selectbox("Reporting Manager:", manager_options) if manager_options else "No Manager Assigned"
@@ -645,9 +633,9 @@ elif st.session_state["user_role"] == "Employer":
                     cursor = conn.cursor()
                     try:
                         cursor.execute("""
-                            INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, gender, birthday, photo_path) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), input_gender, input_birthday.strftime("%B %d, %Y"), photo_save_path))
+                            INSERT INTO new_hires (employee_id, mobile_number, name, role, department, manager, start_date, photo_path) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (input_emp_id, input_mobile, input_name, input_role, input_dept, input_manager, input_date_picker.strftime("%B %d, %Y"), photo_save_path))
                         new_id = cursor.lastrowid
                         cursor.execute("INSERT INTO user_accounts (employee_id, password, role_type, force_password_change) VALUES (?, 'YCH1234', 'Employee', 1)", (input_emp_id,))
                         
@@ -719,7 +707,7 @@ elif st.session_state["user_role"] == "Employer":
             with st.expander("✏️ Edit Employee Profile Information"):
                 conn = get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT name, mobile_number, role, department, manager, gender, birthday, status FROM new_hires WHERE id = ?", (sel_id,))
+                cursor.execute("SELECT name, mobile_number, role, department, manager, status FROM new_hires WHERE id = ?", (sel_id,))
                 emp_details = cursor.fetchone()
                 cursor.execute("SELECT manager_name FROM managers ORDER BY manager_name ASC")
                 all_mgrs = [r[0] for r in cursor.fetchall()]
@@ -738,14 +726,10 @@ elif st.session_state["user_role"] == "Employer":
                         if emp_details[4] in all_mgrs: mgr_idx = all_mgrs.index(emp_details[4])
                         e_mgr = st.selectbox("Reporting Manager", all_mgrs, index=mgr_idx) if all_mgrs else "No Manager Assigned"
                         
-                        try: bday_val = datetime.strptime(emp_details[6], "%B %d, %Y").date() if emp_details[6] else datetime(1990, 1, 1).date()
-                        except: bday_val = datetime(1990, 1, 1).date()
-                        e_bday = st.date_input("Birthday", value=bday_val, min_value=datetime(1950, 1, 1), max_value=datetime.now())
-                        
                         if st.form_submit_button("💾 Save Changes", type="primary"):
                             conn = get_db_connection()
                             cursor = conn.cursor()
-                            cursor.execute("UPDATE new_hires SET name = ?, mobile_number = ?, role = ?, department = ?, manager = ?, birthday = ? WHERE id = ?", (e_name, e_mobile, e_role, e_dept, e_mgr, e_bday.strftime("%B %d, %Y"), sel_id))
+                            cursor.execute("UPDATE new_hires SET name = ?, mobile_number = ?, role = ?, department = ?, manager = ? WHERE id = ?", (e_name, e_mobile, e_role, e_dept, e_mgr, sel_id))
                             conn.commit(); conn.close()
                             st.session_state["profile_updated"] = True
                             st.rerun()
@@ -967,13 +951,13 @@ elif st.session_state["user_role"] == "Employer":
             st.markdown("#### 📥 Data Export")
             target_dataset_selection = st.selectbox("Select Target Segment Context:", ["Active Roster", "Archived Roster", "Complete Master List"])
             conn = get_db_connection()
-            base_cmd = "SELECT employee_id, name, mobile_number, gender, birthday, department, role, manager, start_date, status FROM new_hires"
+            base_cmd = "SELECT employee_id, name, mobile_number, department, role, manager, start_date, status FROM new_hires"
             if "Active" in target_dataset_selection: base_cmd += " WHERE status = 'Active'"; fn = "active_employees.xlsx"
             elif "Archived" in target_dataset_selection: base_cmd += " WHERE status = 'Archived'"; fn = "archived_employees.xlsx"
             else: fn = "all_employees.xlsx"
             df_out = pd.read_sql_query(base_cmd, conn)
             conn.close()
-            df_out.columns = ["Employee ID", "Full Name", "Mobile Number", "Gender", "Birthday", "Department", "Position", "Reporting Manager", "Start Date", "Status"]
+            df_out.columns = ["Employee ID", "Full Name", "Mobile Number", "Department", "Position", "Reporting Manager", "Start Date", "Status"]
             ex_stream = io.BytesIO()
             with pd.ExcelWriter(ex_stream, engine='openpyxl') as writer: df_out.to_excel(writer, index=False, sheet_name='YCH_Roster_Audit')
             st.download_button(label=f"📥 Download Selected Spreadsheet ({fn})", data=ex_stream.getvalue(), file_name=fn, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, type="primary")
